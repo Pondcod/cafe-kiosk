@@ -3,6 +3,7 @@ const app = express();
 const cors = require("cors");
 require('dotenv').config(); 
 const { supabase } = require('../server/server/config/supabase'); // Import from config file
+const routes = require('./server/routes');
 
 // CORS setup
 const corsOption = {
@@ -12,6 +13,8 @@ app.use(cors(corsOption));
 
 // JSON parsing middleware
 app.use(express.json());
+
+app.use('/api', routes);
 
 // Test route to check if server is running
 app.get('/api/test', (req, res) => {
