@@ -107,6 +107,8 @@ app.get('/api/supabase-tables', async (req, res) => {
   }
 });
 
+//test
+
 // Server startup
 app.listen(8080, () => {
   console.log("Server start on port 8080");
