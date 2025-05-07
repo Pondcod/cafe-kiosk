@@ -107,7 +107,6 @@ app.get('/api/supabase-tables', async (req, res) => {
   }
 });
 
-//test
 
 // Server startup
 app.listen(8080, () => {
