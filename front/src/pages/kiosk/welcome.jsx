@@ -3,16 +3,11 @@ import logo from '../../assets/Sol-icon.png';
 import { useNavigate } from 'react-router-dom';
 import ColorPalette from '../../component/ColorPalette.js';
 
-const Welcome = () => {
+function Welcome() {
   const navigate = useNavigate();
-
-  const handleStart = () => {
-    navigate('/option_dine'); // this must match the route path in App.jsx
-  };
-
   return (
     <div
-      onClick={handleStart}
+      onClick={() => navigate('/OptionDine')}
       className="w-full h-screen flex flex-col justify-center items-center cursor-pointer select-none"
       style={{ backgroundColor: ColorPalette.beige_cus_2 }} 
     >
