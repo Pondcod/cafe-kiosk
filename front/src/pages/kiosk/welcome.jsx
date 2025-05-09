@@ -14,9 +14,9 @@ function Welcome() {
       <img
         src={logo}
         alt="Logo"
-        className="w-60 h-60 mb-8 transition-transform duration-300 hover:scale-115 opacity-100"
+        className="w-180 h-180 mb-8 "
       />
-      <p className="text-4xl font-semibold font-roboto text-black animate-pulse margin-20px opacity-90">
+      <p className="text-5xl font-semibold font-roboto text-black animate-pulse margin-20px opacity-90">
         Touch to Start
       </p>
     </div>
