@@ -1,10 +1,26 @@
+// middleware/errorHandler.js
+
+// Central error handling middleware
 const errorHandler = (err, req, res, next) => {
-    console.error(err.stack);
-    
-    res.status(err.statusCode || 500).json({
-      success: false,
-      message: err.message || 'Internal Server Error'
-    });
+  // Log the error
+  console.error('Server error:', err);
+  
+  // Determine status code
+  const statusCode = res.statusCode !== 200 ? res.statusCode : 500;
+  
+  // Prepare error response
+  const errorResponse = {
+    success: false,
+    message: err.message || 'Internal server error',
   };
   
-  module.exports = errorHandler;
+  // Include stack trace in development environment
+  if (process.env.NODE_ENV !== 'production') {
+    errorResponse.stack = err.stack;
+  }
+  
+  // Send error response
+  res.status(statusCode).json(errorResponse);
+};
+
+module.exports = errorHandler;
