@@ -4,6 +4,7 @@ import './App.css';
 import axios from "axios";
 import Welcome from './pages/kiosk/welcome.jsx';
 import OptionDine from './pages/kiosk/OptionDine.jsx';
+import {IndexRoutes} from './routes/index.jsx'
 import {createBrowserRouter, RouterProvider} from 'react-router-dom';
 
 const router = createBrowserRouter([
@@ -15,6 +16,7 @@ const router = createBrowserRouter([
     path: "/OptionDine",
     element: <OptionDine />,
   },
+  IndexRoutes,
 ]);
 
 function App() {
