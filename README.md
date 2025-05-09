@@ -134,6 +134,3 @@ To run the server in development mode with hot reloading:
 npm run dev
 ```
 
-## License
-
-[MIT](LICENSE)
