@@ -1,93 +1,112 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { AiOutlineShoppingCart } from 'react-icons/ai';
-
-// Example cart items (replace with your actual cart state or props)
-const exampleCartItems = [
-  { id: 1, name: 'Iced Americano', price: 2.5 },
-  { id: 2, name: 'Iced Latte', price: 3.0 },
-  { id: 3, name: 'Croissant', price: 2.0 },
-];
+import { useCart } from '../Context/CartContext.jsx';
+import { SweetnessLevels } from '../data/MenuData.js';
 
 function Cart() {
   const [isOpen, setIsOpen] = useState(false);
+  const { cartItems, removeItem, subtotal, discount, total } = useCart();
 
-  const toggleCart = () => {
-    setIsOpen(!isOpen);
-  };
+  // total count of all item quantities
+  const totalQuantity = cartItems.reduce(
+    (sum, item) => sum + (item.quantity || 1),
+    0
+  );
 
-  // Calculate total price
-  const totalPrice = exampleCartItems.reduce((total, item) => total + item.price, 0);
+  // lock page scroll when cart open
+  useEffect(() => {
+    document.body.style.overflow = isOpen ? 'hidden' : '';
+    return () => { document.body.style.overflow = ''; };
+  }, [isOpen]);
+
+  const toggleCart = () => setIsOpen(open => !open);
 
   return (
     <div>
+      {/* backdrop to block interaction when cart open */}
+      {isOpen && (
+        <div
+          className="fixed inset-0 bg-transparent z-30 pointer-events-auto"
+          onClick={toggleCart}
+        />
+      )}
+
       {/* Sliding Cart */}
       <div
         className={`fixed top-1/2 right-0 bg-white shadow-lg transform transition-transform duration-300 z-40 ${
           isOpen ? 'translate-x-0 -translate-y-1/2' : 'translate-x-full -translate-y-1/2'
         }`}
-        style={{
-          width: '40%',
-          height: '80%', // Set height to 70% of the screen
-          borderTopLeftRadius: '20px',
-          borderBottomLeftRadius: '20px',
-        }}
+        style={{ width: '50%', height: '70%', borderTopLeftRadius: 20, borderBottomLeftRadius: 20 }}
       >
         {/* Cart Button (Protruding Tab) */}
         <div
-          className="absolute top-1/2 transform -translate-y-1/2 bg-yellow-500 text-white shadow-lg cursor-pointer z-50 flex items-center justify-center"
-          style={{
-            width: '50px',
-            height: '150px',
-            borderTopLeftRadius: '25px',
-            borderBottomLeftRadius: '25px',
-            left: '-50px',
-          }}
+          className="absolute top-1/2 transform -translate-y-1/2 bg-yellow-500 text-white shadow-lg cursor-pointer flex items-center justify-center"
+          style={{ width: 60, height: 160, borderTopLeftRadius: 25, borderBottomLeftRadius: 25, left: -60 }}
           onClick={toggleCart}
         >
-          <AiOutlineShoppingCart className="text-4xl" />
+          <AiOutlineShoppingCart className="text-3xl" />
+          {/* badge showing total item quantity */}
+          {totalQuantity > 0 && (
+            <span className="absolute top-1 right-0 bg-white text-black text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
+              {totalQuantity}
+            </span>
+          )}
         </div>
 
         {/* Cart Content */}
         <div className="flex flex-col h-full p-6">
-          {/* Header */}
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-2xl font-bold">My Order</h2>
-            <button
-              className="text-xl font-bold text-gray-500"
-              onClick={toggleCart}
-            >
-              ✕
-            </button>
+            <button className="text-xl font-bold text-gray-500" onClick={toggleCart}>✕</button>
           </div>
 
-          {/* Take Away / Dine In */}
-          <div className="mb-6">
-            <p className="text-lg font-medium">Take Away / Dine In</p>
-          </div>
-
-          {/* Items */}
-          <div className="flex flex-col gap-4 flex-1 overflow-y-auto">
-            {exampleCartItems.length > 0 ? (
-              exampleCartItems.map((item) => (
-                <div
-                  key={item.id}
-                  className="flex justify-between items-center border-b pb-2"
-                >
-                  <p className="text-lg">{item.name}</p>
-                  <p className="text-lg font-medium">${item.price.toFixed(2)}</p>
+          <div className="flex-grow overflow-y-auto">
+            {cartItems.length === 0 ? (
+              <div className="text-center text-gray-500 mt-10 text-xl">Your cart is empty.</div>
+            ) : (
+              cartItems.map((item, idx) => (
+                <div key={idx} className="flex justify-between items-center mb-4">
+                  <div>
+                    <div className="font-bold">{item.name}</div>
+                    <ul className="text-sm text-gray-600 ml-2">
+                      {item.size && <li>Size: {item.size}</li>}
+                      {item.sweetness != null && (
+                        <li>
+                          Sweetness: {SweetnessLevels[item.sweetness] || item.sweetness}
+                        </li>
+                      )}
+                      {item.milk && <li>Milk: {item.milk}</li>}
+                      {item.addOns?.length > 0 && (
+                        <li>
+                          Add-Ons:
+                          <ul className="ml-4 text-xs text-gray-400">
+                            {item.addOns.map((a, i) => (
+                              <li key={i}>
+                                {a.name} {a.price > 0 && <span>+฿{a.price.toFixed(2)}</span>}
+                              </li>
+                            ))}
+                          </ul>
+                        </li>
+                      )}
+                    </ul>
+                  </div>
+                  <div className="flex items-center">
+                    {/* show unit price */}
+                    <div className="text-right mr-4">
+                      <span className="font-bold">฿{(item.price / (item.quantity || 1)).toFixed(2)}</span>
+                      <p className="text-xs text-gray-500">Qty: {item.quantity || 1}</p>
+                    </div>
+                    <button className="text-red-500 ml-2" onClick={() => removeItem(idx)}>Remove</button>
+                  </div>
                 </div>
               ))
-            ) : (
-              <p className="text-lg text-gray-500">Your cart is empty.</p>
             )}
           </div>
 
-          {/* Total */}
-          <div className="mt-6 border-t pt-4">
-            <div className="flex justify-between items-center">
-              <p className="text-lg font-bold">Total:</p>
-              <p className="text-lg font-bold">${totalPrice.toFixed(2)}</p>
-            </div>
+          <div className="mt-4">
+            <div className="flex justify-between"><span>Subtotal</span><span>฿{subtotal.toFixed(2)}</span></div>
+            {discount > 0 && <div className="flex justify-between text-green-600"><span>Discount</span><span>-฿{discount.toFixed(2)}</span></div>}
+            <div className="flex justify-between font-bold"><span>Total</span><span>฿{total.toFixed(2)}</span></div>
           </div>
         </div>
       </div>

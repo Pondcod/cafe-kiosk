@@ -1,37 +1,43 @@
-import { useEffect, useState } from 'react';
-import react from 'react';
+import React, { useEffect } from 'react';
 import './App.css';
-import axios from "axios";
-import Welcome from './pages/kiosk/welcome.jsx';
+import axios from 'axios';
+import { createBrowserRouter, RouterProvider, Outlet } from 'react-router-dom';
+import { CartProvider } from './Context/CartContext.jsx';
+import IdleGuard from './component/IdleTimer/IdleGuard.jsx';
+
+import Welcome    from './pages/kiosk/welcome.jsx';
 import OptionDine from './pages/kiosk/OptionDine.jsx';
-import {IndexRoutes} from './routes/index.jsx'
-import {createBrowserRouter, RouterProvider} from 'react-router-dom';
+import Summary    from './pages/kiosk/Summary.jsx';
+import Checkout   from './pages/kiosk/Checkout.jsx';
+import { IndexRoutes } from './routes/index.jsx';
 
 const router = createBrowserRouter([
   {
-    path: "/",
+    path: '/',
     element: <Welcome />,
   },
   {
-    path: "/OptionDine",
-    element: <OptionDine />,
-  },
-  IndexRoutes,
+    // all non-“/” routes run inside IdleGuard
+    element: <IdleGuard><Outlet/></IdleGuard>,
+    children: [
+      { path: 'OptionDine', element: <OptionDine/> },
+      { path: 'Summary',    element: <Summary/> },
+      { path: 'Checkout',   element: <Checkout/> },
+      // include the /Menu/* routes
+      IndexRoutes
+    ]
+  }
 ]);
 
-function App() {
-  const [count, setCount] = useState(0)
-  
-  const fetchAPI = async () =>{
-    const response = await axios.get("http://localhost:8080/api")
-    console.log(response.data.fruits)
-  }
-  useEffect(() =>{
-    fetchAPI();
-  }, [])
+export default function App() {
+  useEffect(() => {
+    axios.get('http://localhost:8080/api').then(res => console.log(res.data.fruits));
+  }, []);
+
   return (
-    <RouterProvider router={router} />
+    <CartProvider>
+      <RouterProvider router={router} />
+    </CartProvider>
   );
 }
 
-export default App

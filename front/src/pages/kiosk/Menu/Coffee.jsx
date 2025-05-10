@@ -1,157 +1,137 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { SideBar } from '../../../component/SideBar.jsx';
 import FootBar from '../../../component/FootBar.jsx';
 import Cart from '../../../component/Cart.jsx';
 import CustomizationSlide from '../../../component/Customization_Slide.jsx';
 import OrderSlide from '../../../component/Order_Slide.jsx';
 import ColorPalette from '../../../component/ColorPalette';
-import IcedAmericano from '../../../assets/Menu_Cafe/Americano/Iced_Americano.png';
-import IcedCappuccino from '../../../assets/Menu_Cafe/Cappuccino/Hot_Cappuccino.png';
-import IcedEspresso from '../../../assets/Menu_Cafe/Espresso/IcedEspresso.png';
-import IcedLatte from '../../../assets/Menu_Cafe/Latte/Iced_Latte.png';
-import IcedMacchiatos from '../../../assets/Menu_Cafe/Macchiatos/Iced_Caramel_Macchiato.png';
-import IcedMocha from '../../../assets/Menu_Cafe/Mocha/Iced_Mocha.png';
+import { Menu } from '../../../data/MenuData.js';
 
 const Coffee = () => {
-  const [isCustomizationOpen, setIsCustomizationOpen] = useState(false);
+  const navigate = useNavigate();
   const [isOrderSlideOpen, setIsOrderSlideOpen] = useState(false);
+  const [isCustomizationOpen, setIsCustomizationOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState(null);
   const [cart, setCart] = useState({ items: [], totalPrice: 0 });
+  const [customizationDetails, setCustomizationDetails] = useState(null);
 
-  const handleItemClick = (itemName, itemImage, basePrice) => {
-    setSelectedItem({ itemName, itemImage, basePrice });
-    setIsOrderSlideOpen(true); // Open the Order Slide
+  // 1) Filter all items whose subCategory includes "Coffee"
+  const coffeeMenus = Menu.filter(
+    item =>
+      Array.isArray(item.subCategory) &&
+      item.subCategory.includes('Coffee')
+  );
+
+  // 2) Unique by mainCategory
+  const uniqueMap = {};
+  coffeeMenus.forEach(item => {
+    if (!uniqueMap[item.mainCategory]) {
+      uniqueMap[item.mainCategory] = item;
+    }
+  });
+  const uniqueMenus = Object.values(uniqueMap);
+
+  const handleItemClick = (name, image, sizes, subCategory) => {
+    setSelectedItem({ name, image, sizes, subCategory });
+    setCustomizationDetails(null); // reset any prior customization
+    setIsOrderSlideOpen(true);
   };
 
-  const handleAddToCart = (item) => {
-    setCart((prevCart) => ({
-      items: [...prevCart.items, item],
-      totalPrice: prevCart.totalPrice + item.price,
+  const handleAddToCart = order => {
+    setCart(prev => ({
+      items: [...prev.items, order],
+      totalPrice: prev.totalPrice + order.price,
     }));
-    setIsOrderSlideOpen(false); // Close the Order Slide after adding to cart
+    setIsOrderSlideOpen(false);
+    setSelectedItem(null);
+    setCustomizationDetails(null);
   };
 
   const handleOpenCustomization = () => {
-    setIsOrderSlideOpen(false); // Close the Order Slide
-    setIsCustomizationOpen(true); // Open the Customization Slide
+    setIsCustomizationOpen(true);
   };
 
   const handleCloseCustomization = () => {
     setIsCustomizationOpen(false);
-    setSelectedItem(null);
+  };
+
+  const handleCustomizationConfirm = details => {
+    setCustomizationDetails(details);
+    setIsCustomizationOpen(false);
   };
 
   const handleCloseOrderSlide = () => {
     setIsOrderSlideOpen(false);
     setSelectedItem(null);
+    setCustomizationDetails(null);
   };
 
   return (
-    <div className="flex flex-col h-screen" style={{ backgroundColor: ColorPalette.beige_cus_2 }}>
-      <div className="flex flex-1">
-        <SideBar />
-        <div className="flex-1 p-6">
-          <h1 className="text-5xl mt-30 ml-3 font-medium mb-4">Coffee</h1>
-          <div className="grid grid-cols-3 gap-y-10 gap-x-6 place-items-center mt-13 py-10">
-            {/* Iced Americano */}
-            <div
-              className="w-full h-full flex flex-col items-center justify-center rounded-3xl shadow-md"
-              style={{ backgroundColor: ColorPalette.beige_cus_2 }}
-              onClick={() => handleItemClick('Iced Americano', IcedAmericano, 2.0)}
-            >
-              <img src={IcedAmericano} alt="Iced Americano" className="w-24 h-24 object-cover mb-4" />
-              <p className="text-lg font-medium">Iced Americano</p>
-              <p className="text-md font-light text-gray-600">$2.00</p>
-            </div>
-
-            {/* Iced Cappuccino */}
-            <div
-              className="w-full h-full flex flex-col items-center justify-center rounded-3xl shadow-md"
-              style={{ backgroundColor: ColorPalette.beige_cus_2 }}
-              onClick={() => handleItemClick('Iced Cappuccino', IcedCappuccino, 2.5)}
-            >
-              <img src={IcedCappuccino} alt="Iced Cappuccino" className="w-24 h-24 object-cover mb-4" />
-              <p className="text-lg font-medium">Iced Cappuccino</p>
-              <p className="text-md font-light text-gray-600">$2.50</p>
-            </div>
-
-            {/* Iced Espresso */}
-            <div
-              className="w-full h-full flex flex-col items-center justify-center rounded-3xl shadow-md"
-              style={{ backgroundColor: ColorPalette.beige_cus_2 }}
-              onClick={() => handleItemClick('Iced Espresso', IcedEspresso, 2.0)}
-            >
-              <img src={IcedEspresso} alt="Iced Espresso" className="w-24 h-24 object-cover mb-4" />
-              <p className="text-lg font-medium">Iced Espresso</p>
-              <p className="text-md font-light text-gray-600">$2.00</p>
-            </div>
-
-            {/* Iced Latte */}
-            <div
-              className="w-full h-full flex flex-col items-center justify-center rounded-3xl shadow-md"
-              style={{ backgroundColor: ColorPalette.beige_cus_2 }}
-              onClick={() => handleItemClick('Iced Latte', IcedLatte, 2.5)}
-            >
-              <img src={IcedLatte} alt="Iced Latte" className="w-24 h-24 object-cover mb-4" />
-              <p className="text-lg font-medium">Iced Latte</p>
-              <p className="text-md font-light text-gray-600">$2.50</p>
-            </div>
-
-            {/* Iced Macchiatos */}
-            <div
-              className="w-full h-full flex flex-col items-center justify-center rounded-3xl shadow-md"
-              style={{ backgroundColor: ColorPalette.beige_cus_2 }}
-              onClick={() => handleItemClick('Iced Macchiatos', IcedMacchiatos, 3.0)}
-            >
-              <img src={IcedMacchiatos} alt="Iced Macchiatos" className="w-24 h-24 object-cover mb-4" />
-              <p className="text-lg font-medium">Iced Macchiatos</p>
-              <p className="text-md font-light text-gray-600">$3.00</p>
-            </div>
-
-            {/* Iced Mocha */}
-            <div
-              className="w-full h-full flex flex-col items-center justify-center rounded-3xl shadow-md"
-              style={{ backgroundColor: ColorPalette.beige_cus_2 }}
-              onClick={() => handleItemClick('Iced Mocha', IcedMocha, 3.0)}
-            >
-              <img src={IcedMocha} alt="Iced Mocha" className="w-24 h-24 object-cover mb-4" />
-              <p className="text-lg font-medium">Iced Mocha</p>
-              <p className="text-md font-light text-gray-600">$3.00</p>
-            </div>
-          </div>
-        </div>
-      </div>
-      <FootBar />
-
-      {/* Order Slide */}
-      {isOrderSlideOpen && (
-        <OrderSlide
-          itemName={selectedItem?.itemName}
-          itemImage={selectedItem?.itemImage}
-          basePrice={selectedItem?.basePrice}
-          onConfirm={(orderDetails) => handleAddToCart(orderDetails)} // Add to cart
-          onClose={handleCloseOrderSlide}
-          onCustomize={handleOpenCustomization} // Trigger Customization Slide
-        />
-      )}
-
-      {/* Customization Slide */}
-      {isCustomizationOpen && (
-        <CustomizationSlide
-          itemName={selectedItem?.itemName}
-          itemImage={selectedItem?.itemImage}
-          basePrice={selectedItem?.basePrice}
-          onConfirm={(customizationDetails) => handleAddToCart(customizationDetails)} // Add to cart
-          onClose={handleCloseCustomization}
-        />
-      )}
-
-      {/* Cart */}
+    <div
+      className="relative flex h-screen"
+      style={{ backgroundColor: ColorPalette.beige_cus_2 }}
+    >
+      <FootBar className="fixed bottom-0 left-0 right-0 z-20" />
       <Cart
         cartItems={cart.items}
         totalPrice={cart.totalPrice}
         toggleCart={() => {}}
       />
+      <SideBar className="relative z-10" />
+      <div className="flex flex-col flex-1 h-screen overflow-hidden">
+        <div className="flex-1 flex flex-col p-6 overflow-y-auto mr-10">
+          <h1 className="text-5xl font-medium mb-6">Coffee</h1>
+          <div className="grid grid-cols-3 gap-y-10 gap-x-6 place-items-center">
+            {uniqueMenus.map((item, idx) => (
+              <div
+                key={idx}
+                className="w-full h-full flex flex-col items-center justify-center rounded-3xl shadow-md"
+                style={{ backgroundColor: ColorPalette.beige_cus_2 }}
+                onClick={() =>
+                  handleItemClick(
+                    item.name,
+                    item.image,
+                    item.sizes || { Regular: 0, Large: 0 },
+                    item.subCategory // ← new
+                  )
+                }
+              >
+                <img
+                  src={item.image}
+                  alt={item.mainCategory}
+                  className="w-24 h-24 object-cover mb-4"
+                />
+                <p className="text-lg font-medium">{item.mainCategory}</p>
+                <p className="text-md font-light text-gray-600">
+                  {item.sizes?.Regular && `฿${item.sizes.Regular}`}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {isOrderSlideOpen && selectedItem && (
+        <OrderSlide
+          itemName={selectedItem.name}
+          itemImage={selectedItem.image}
+          sizes={selectedItem.sizes}
+          initialCustomization={customizationDetails}
+          onCustomize={handleOpenCustomization}
+          onConfirm={handleAddToCart}
+          onClose={handleCloseOrderSlide}
+        />
+      )}
+
+      {isCustomizationOpen && selectedItem && (
+        <CustomizationSlide
+          hasMilk={selectedItem.subCategory?.includes('Milk')} // ← check subCategory
+          initialCustomization={customizationDetails}
+          onConfirm={handleCustomizationConfirm}
+          onClose={handleCloseCustomization}
+        />
+      )}
     </div>
   );
 };
