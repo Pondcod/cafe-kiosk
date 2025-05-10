@@ -1,71 +1,71 @@
 // routes/inventory.js
-const express = require('express');
+const express = require("express");
 const router = express.Router();
-const inventoryController = require('../controllers/inventory');
+const inventoryController = require("../controllers/inventory");
 // Uncomment when auth middleware is ready
 // const { authenticateUser, authorizeRole } = require('../middleware/auth');
 
 // Get low stock inventory items
 router.get(
-  '/low-stock', 
-  // authenticateUser, 
-  // authorizeRole(['admin', 'manager', 'staff']), 
+  "/low-stock",
+  // authenticateUser,
+  // authorizeRole(['admin', 'manager', 'staff']),
   inventoryController.getLowStockInventory
 );
 
 // Get inventory by product ID
 router.get(
-  '/product/:productId', 
-  // authenticateUser, 
-  // authorizeRole(['admin', 'manager', 'staff']), 
+  "/product/:productId",
+  // authenticateUser,
+  // authorizeRole(['admin', 'manager', 'staff']),
   inventoryController.getInventoryByProduct
 );
 
 // Get all inventory items
 router.get(
-  '/', 
-  // authenticateUser, 
-  // authorizeRole(['admin', 'manager', 'staff']), 
+  "/",
+  // authenticateUser,
+  // authorizeRole(['admin', 'manager', 'staff']),
   inventoryController.getAllInventory
 );
 
 // Get inventory item by ID
 router.get(
-  '/:id', 
-  // authenticateUser, 
-  // authorizeRole(['admin', 'manager', 'staff']), 
+  "/:id",
+  // authenticateUser,
+  // authorizeRole(['admin', 'manager', 'staff']),
   inventoryController.getInventoryById
 );
 
 // Create new inventory item
 router.post(
-  '/', 
-  // authenticateUser, 
-  // authorizeRole(['admin', 'manager']), 
+  "/",
+  // authenticateUser,
+  // authorizeRole(['admin', 'manager']),
   inventoryController.createInventory
 );
 
 // Update inventory item
 router.put(
-  '/:id', 
-  // authenticateUser, 
-  // authorizeRole(['admin', 'manager', 'staff']), 
+  "/:id",
+  // authenticateUser,
+  // authorizeRole(['admin', 'manager', 'staff']),
   inventoryController.updateInventory
 );
 
 // Delete inventory item
 router.delete(
-  '/:id', 
-  // authenticateUser, 
-  // authorizeRole(['admin', 'manager']), 
+  "/:id",
+  // authenticateUser,
+  // authorizeRole(['admin', 'manager']),
   inventoryController.deleteInventory
 );
 
 // Restock inventory
 router.post(
-  '/:id/restock', 
-  // authenticateUser, 
-  // authorizeRole(['admin', 'manager', 'staff']), 
+  "/:id/restock",
+  // authenticateUser,
+  // authorizeRole(['admin', 'manager', 'staff']),
   inventoryController.restockInventory
 );
 

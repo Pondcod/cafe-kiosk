@@ -1,46 +1,46 @@
 // routes/orders.js
-const express = require('express');
+const express = require("express");
 const router = express.Router();
-const ordersController = require('../controllers/orders');
+const ordersController = require("../controllers/orders");
 // Uncomment when auth middleware is ready
 // const { authenticateUser, authorizeRole } = require('../middleware/auth');
 
 // Route to get orders by date range
-router.get('/date-range', ordersController.getOrdersByDateRange);
+router.get("/date-range", ordersController.getOrdersByDateRange);
 
 // Route to get all orders
 router.get(
-  '/', 
-  // authenticateUser, 
-  // authorizeRole(['admin', 'manager', 'staff']), 
+  "/",
+  // authenticateUser,
+  // authorizeRole(['admin', 'manager', 'staff']),
   ordersController.getAllOrders
 );
 
 // Route to get a specific order
 router.get(
-  '/:id', 
-  // authenticateUser, 
+  "/:id",
+  // authenticateUser,
   ordersController.getOrderById
 );
 
 // Route to create a new order
 router.post(
-  '/', 
+  "/",
   // For kiosk orders, authentication might not be required
   ordersController.createOrder
 );
 
 // Route to update order status
 router.put(
-  '/:id/status', 
-  // authenticateUser, 
-  // authorizeRole(['admin', 'manager', 'staff']), 
+  "/:id/status",
+  // authenticateUser,
+  // authorizeRole(['admin', 'manager', 'staff']),
   ordersController.updateOrderStatus
 );
 
 // Route to process payment
 router.post(
-  '/:id/payment', 
+  "/:id/payment",
   // For kiosk payments, authentication might not be required
   ordersController.processPayment
 );

@@ -1,60 +1,120 @@
 // middleware/auth.js
-const { supabase } = require('../config/supabase');
-const bcrypt = require('bcrypt');
+const { supabase } = require("../config/supabase");
+const jwt = require("jsonwebtoken");
 
-// Authenticate user middleware
-const authenticateUser = async (req, res, next) => {
+// Simple JWT secret - in production, this should be in env vars
+const JWT_SECRET = "cafe-kiosk-secret-key";
+
+// Login function - can be moved to a separate controller
+const login = async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    if (!email || !password) {
+      return res.status(400).json({
+        success: false,
+        message: "Email and password are required",
+      });
+    }
+
+    // Get user with the provided email
+    const { data, error } = await supabase
+      .from("users")
+      .select("*")
+      .eq("email", email)
+      .single();
+
+    if (error || !data) {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid credentials",
+      });
+    }
+
+    // Compare password (for simplicity, we'll use direct comparison)
+    // In production, use bcrypt.compare()
+    if (password !== data.password_hash) {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid credentials",
+      });
+    }
+
+    // Generate JWT token
+    const token = jwt.sign(
+      {
+        id: data.user_id,
+        email: data.email,
+        role: data.role,
+      },
+      JWT_SECRET,
+      { expiresIn: "24h" }
+    );
+
+    // Update last login timestamp
+    await supabase
+      .from("users")
+      .update({ last_login: new Date().toISOString() })
+      .eq("user_id", data.user_id);
+
+    // Log user activity
+    await supabase.from("activitylog").insert([
+      {
+        user_id: data.user_id,
+        action_type: "login",
+        details: "User logged in",
+        ip_address: req.ip || "0.0.0.0",
+      },
+    ]);
+
+    // Return user data and token (excluding password hash)
+    const { password_hash, ...userData } = data;
+
+    res.json({
+      success: true,
+      message: "Login successful",
+      data: userData,
+      token,
+    });
+  } catch (error) {
+    console.error("Login error:", error);
+    res.status(500).json({
+      success: false,
+      message: "An error occurred during login",
+    });
+  }
+};
+
+// Authenticate user middleware using JWT
+const authenticateUser = (req, res, next) => {
   try {
     // Get token from Authorization header
-    const token = req.headers.authorization?.split(' ')[1];
-    
+    const token = req.headers.authorization?.split(" ")[1];
+
     if (!token) {
-      return res.status(401).json({ 
-        success: false, 
-        message: 'Authentication required. No token provided.' 
+      return res.status(401).json({
+        success: false,
+        message: "Authentication required. No token provided.",
       });
     }
-    
-    // In a real application, you would verify a JWT token here
-    // For this example, we'll use a simple token lookup in Supabase
-    const { data, error } = await supabase
-      .from('users')
-      .select('*')
-      .eq('user_id', token)
-      .single();
-    
-    if (error || !data) {
-      return res.status(401).json({ 
-        success: false, 
-        message: 'Invalid or expired token' 
-      });
-    }
-    
+
+    // Verify JWT token
+    const decoded = jwt.verify(token, JWT_SECRET);
+
     // Add user info to request object
-    req.user = data;
-    
-    // Update last login time
-    await supabase
-      .from('users')
-      .update({ last_login: new Date().toISOString() })
-      .eq('user_id', data.user_id);
-    
-    // Log user activity
-    await supabase
-      .from('activitylog')
-      .insert([{
-        user_id: data.user_id,
-        action_type: 'login',
-        details: `API access: ${req.method} ${req.originalUrl}`,
-        ip_address: req.ip || '0.0.0.0'
-      }]);
-    
+    req.user = {
+      user_id: decoded.id,
+      email: decoded.email,
+      role: decoded.role,
+    };
+
+    // Continue to the next middleware
     next();
   } catch (error) {
-    console.error('Authentication error:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Authentication error' 
+    console.error("Authentication error:", error);
+    return res.status(401).json({
+      success: false,
+      message: "Invalid or expired token",
     });
   }
 };
@@ -63,30 +123,33 @@ const authenticateUser = async (req, res, next) => {
 const authorizeRole = (allowedRoles) => {
   return (req, res, next) => {
     if (!req.user) {
-      return res.status(401).json({ 
-        success: false, 
-        message: 'Authentication required' 
+      return res.status(401).json({
+        success: false,
+        message: "Authentication required",
       });
     }
-    
+
     if (!allowedRoles.includes(req.user.role)) {
-      return res.status(403).json({ 
-        success: false, 
-        message: `Access denied. This action requires ${allowedRoles.join(' or ')} role.` 
+      return res.status(403).json({
+        success: false,
+        message: `Access denied. This action requires ${allowedRoles.join(
+          " or "
+        )} role.`,
       });
     }
-    
+
     next();
   };
 };
 
 // For backward compatibility with your current code
 const isAuthenticated = authenticateUser;
-const isAdmin = authorizeRole(['admin']);
+const isAdmin = authorizeRole(["admin"]);
 
 module.exports = {
+  login,
   authenticateUser,
   authorizeRole,
   isAuthenticated, // For backward compatibility
-  isAdmin          // For backward compatibility
+  isAdmin, // For backward compatibility
 };
