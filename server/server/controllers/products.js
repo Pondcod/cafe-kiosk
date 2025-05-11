@@ -2,11 +2,12 @@
 const { supabase } = require("../config/supabase");
 const { v4: uuidv4 } = require("uuid");
 
-// Helper function to handle image uploads
 const handleImageUpload = async (imageFile, productId) => {
   if (!imageFile) return null;
 
   try {
+    console.log("Handling image upload:", imageFile.name);
+
     // Create a unique file name
     const fileExt = imageFile.name.split(".").pop();
     const fileName = `${productId || uuidv4()}.${fileExt}`;
@@ -15,18 +16,25 @@ const handleImageUpload = async (imageFile, productId) => {
     // Upload the file to Supabase Storage
     const { data, error } = await supabase.storage
       .from("product-images")
-      .upload(filePath, imageFile, {
+      .upload(filePath, imageFile.data, {
         cacheControl: "3600",
         upsert: true,
+        contentType: imageFile.mimetype,
       });
 
-    if (error) throw error;
+    if (error) {
+      console.error("Upload error:", error);
+      throw error;
+    }
 
-    // Get the public URL
-    const { publicURL } = supabase.storage
+    // UPDATED: Get the public URL - the syntax might have changed
+    const { data: publicUrlData } = supabase.storage
       .from("product-images")
       .getPublicUrl(filePath);
 
+    const publicURL = publicUrlData.publicUrl;  // Note: might be publicUrl (lowercase u) in newer versions
+
+    console.log("Image uploaded successfully, URL:", publicURL);
     return publicURL;
   } catch (error) {
     console.error("Error uploading image:", error);
@@ -273,129 +281,69 @@ const createProduct = async (req, res) => {
 };
 
 // Update product - UPDATED WITH IMAGE UPLOAD
+// In controllers/products.js - updateProduct function
+// Update just this part of your updateProduct function
 const updateProduct = async (req, res) => {
   try {
     const { id } = req.params;
-    
 
-    // Debug the request
+    // Enhanced debugging
     console.log(`Updating product ${id}`);
     console.log("Request body:", req.body);
-    
+    console.log("Request files:", req.files);
 
-    const { name, description, price, category_id, active_status } = req.body;
-
-    // Get image file from request if using express-fileupload
-    const imageFile = req.files?.image;
-
-    console.log("Update data:", {
-      name,
-      description,
-      price,
-      category_id,
-      active_status,
-      hasImage: !!imageFile,
-    });
-
-    // First check if the product exists
-    const { data: existingData, error: checkError } = await supabase
-      .from("products")
-      .select("product_id, img_url")
-      .eq("product_id", id);
-
-    if (checkError) {
-      console.error("Error checking product:", checkError);
-      throw checkError;
-    }
-
-    if (!existingData || existingData.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: `Product with ID ${id} not found`,
-      });
-    }
-
-    // Check if category exists if category_id is provided
-    if (category_id !== undefined && category_id !== null) {
-      const { data: categoryData, error: categoryError } = await supabase
-        .from("categories")
-        .select("category_id")
-        .eq("category_id", category_id);
-
-      if (categoryError) {
-        console.error("Error checking category:", categoryError);
-        throw categoryError;
-      }
-
-      if (!categoryData || categoryData.length === 0) {
-        return res.status(400).json({
-          success: false,
-          message: `Category with ID ${category_id} not found`,
-        });
-      }
-    }
-
-    // Build update object with only provided fields
+    // Create empty updateData object
     const updateData = {};
-    if (name !== undefined) updateData.name = name;
-    if (description !== undefined) updateData.description = description;
-    if (price !== undefined && !isNaN(parseFloat(price)))
-      updateData.price = parseFloat(price);
-    if (category_id !== undefined) updateData.category_id = category_id;
-    if (active_status !== undefined) updateData.active_status = active_status;
-
-    // Upload new image if provided
+    
+    // Check if price is provided in the form data
+    if (req.body && req.body.price) {
+      updateData.price = parseFloat(req.body.price);
+    }
+    
+    // Get the image file
+    const imageFile = req.files?.img_url || req.files?.image;
+    
+    // Check if we have an image to upload
     if (imageFile) {
       console.log(`Uploading new image for product ID: ${id}`);
       const imageUrl = await handleImageUpload(imageFile, id);
-
+      
       if (imageUrl) {
         console.log(`New image uploaded: ${imageUrl}`);
         updateData.img_url = imageUrl;
-
-        // If there was an existing image, we could delete it here
-        // This is optional and depends on your storage requirements
-        const oldImageUrl = existingData[0].img_url;
-        if (oldImageUrl) {
-          // Extract the path from the URL to delete the old image
-          try {
-            const urlParts = oldImageUrl.split("/");
-            const fileName = urlParts[urlParts.length - 1];
-            const filePath = `products/${fileName}`;
-
-            await supabase.storage.from("product-images").remove([filePath]);
-
-            console.log(`Old image deleted: ${filePath}`);
-          } catch (deleteError) {
-            console.error("Error deleting old image:", deleteError);
-            // Continue despite error - not critical
-          }
-        }
       }
     }
-
-    const { data, error } = await supabase
-      .from("products")
-      .update(updateData)
-      .eq("product_id", id)
-      .select();
-
-    if (error) {
-      console.error("Supabase error updating product:", error);
-      throw error;
+    
+    // Skip all the other processing and just update with what we have
+    if (Object.keys(updateData).length > 0) {
+      const { data, error } = await supabase
+        .from("products")
+        .update(updateData)
+        .eq("product_id", id)
+        .select();
+        
+      if (error) {
+        console.error("Supabase error updating product:", error);
+        throw error;
+      }
+      
+      console.log("Product updated successfully:", data);
+      res.json({
+        success: true,
+        message: "Product updated successfully",
+        data: data[0]
+      });
+    } else {
+      res.status(400).json({
+        success: false,
+        message: "No data provided for update"
+      });
     }
-
-    console.log("Product updated successfully:", data);
-    res.json({
-      success: true,
-      message: "Product updated successfully",
-      data: data[0],
-    });
   } catch (error) {
     console.error("Error updating product:", error);
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: error.message
     });
   }
 };

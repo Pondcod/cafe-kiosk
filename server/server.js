@@ -3,7 +3,7 @@ const express = require("express");
 const app = express();
 const cors = require("cors");
 require("dotenv").config();
-const fileUpload = require('express-fileupload');
+const fileUpload = require("express-fileupload");
 const { supabase } = require("./server/config/supabase");
 const routes = require("./server/routes");
 const errorHandler = require("./server/middleware/errorHandler");
@@ -13,17 +13,19 @@ const corsOptions = {
   origin: ["http://localhost:5173"], // Add any other origins you need
   methods: ["GET", "POST", "PUT", "DELETE"],
   allowedHeaders: ["Content-Type", "Authorization"],
-  credentials: true // Add this if you're using credentials
+  credentials: true, // Add this if you're using credentials
 };
 app.use(cors(corsOptions));
 
 // IMPORTANT: File upload middleware MUST come BEFORE routes
 // This must be registered BEFORE any body parsers
-app.use(fileUpload({
-  limits: { fileSize: 5 * 1024 * 1024 }, // Limit to 5MB
-  createParentPath: true,
-  debug: true // Enable debug mode temporarily
-}));
+app.use(
+  fileUpload({
+    limits: { fileSize: 5 * 1024 * 1024 }, // Limit to 5MB
+    createParentPath: true,
+    debug: true, // Enable debug mode temporarily
+  })
+);
 
 // Body parsers after file upload middleware
 app.use(express.json());
@@ -31,10 +33,10 @@ app.use(express.urlencoded({ extended: true }));
 
 // Debug middleware - BEFORE routes to capture all requests
 app.use((req, res, next) => {
-  if (['POST', 'PUT'].includes(req.method)) {
+  if (["POST", "PUT"].includes(req.method)) {
     console.log(`[${req.method}] ${req.url} - Request Body:`, req.body);
-    console.log('Content-Type:', req.get('Content-Type'));
-    if (req.files) console.log('Files:', req.files);
+    console.log("Content-Type:", req.get("Content-Type"));
+    if (req.files) console.log("Files:", req.files);
   }
   next();
 });
@@ -51,7 +53,7 @@ app.post("/api/test-upload", (req, res) => {
   return res.json({
     success: true,
     body: req.body,
-    files: req.files ? Object.keys(req.files) : []
+    files: req.files ? Object.keys(req.files) : [],
   });
 });
 
@@ -61,8 +63,8 @@ app.post("/api/test-body", (req, res) => {
     success: true,
     received: req.body,
     bodyType: typeof req.body,
-    contentType: req.get('Content-Type'),
-    isEmpty: Object.keys(req.body).length === 0
+    contentType: req.get("Content-Type"),
+    isEmpty: Object.keys(req.body).length === 0,
   });
 });
 
@@ -121,7 +123,7 @@ app.use(errorHandler);
 
 // 404 handler for any other routes
 app.use((req, res) => {
-  res.status(404).json({ success: false, message: 'Route not found' });
+  res.status(404).json({ success: false, message: "Route not found" });
 });
 
 // Server startup

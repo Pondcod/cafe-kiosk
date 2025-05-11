@@ -2,7 +2,7 @@
 const express = require("express");
 const router = express.Router();
 const promotionsController = require("../controllers/promotions");
-const { authenticateUser, authorizeRole } = require('../middleware/auth');
+const { authenticateUser, authorizeRole } = require("../middleware/auth");
 
 // Get active promotions (public endpoint - no auth required)
 router.get("/active", promotionsController.getActivePromotions);
@@ -11,7 +11,7 @@ router.get("/active", promotionsController.getActivePromotions);
 router.get(
   "/",
   authenticateUser,
-  authorizeRole(['admin', 'manager']),
+  authorizeRole(["admin", "manager"]),
   promotionsController.getAllPromotions
 );
 
@@ -19,7 +19,7 @@ router.get(
 router.get(
   "/:id",
   authenticateUser,
-  authorizeRole(['admin', 'manager']),
+  authorizeRole(["admin", "manager"]),
   promotionsController.getPromotionById
 );
 
@@ -27,7 +27,7 @@ router.get(
 router.post(
   "/",
   authenticateUser,
-  authorizeRole(['admin', 'manager']),
+  authorizeRole(["admin", "manager"]),
   promotionsController.createPromotion
 );
 
@@ -35,7 +35,7 @@ router.post(
 router.put(
   "/:id",
   authenticateUser,
-  authorizeRole(['admin', 'manager']),
+  authorizeRole(["admin", "manager"]),
   promotionsController.updatePromotion
 );
 
@@ -43,7 +43,7 @@ router.put(
 router.delete(
   "/:id",
   authenticateUser,
-  authorizeRole(['admin']),
+  authorizeRole(["admin"]),
   promotionsController.deletePromotion
 );
 
@@ -51,7 +51,7 @@ router.delete(
 router.post(
   "/product",
   authenticateUser,
-  authorizeRole(['admin', 'manager']),
+  authorizeRole(["admin", "manager"]),
   promotionsController.addProductToPromotion
 );
 
@@ -59,7 +59,7 @@ router.post(
 router.delete(
   "/:promotion_id/product/:product_id",
   authenticateUser,
-  authorizeRole(['admin', 'manager']),
+  authorizeRole(["admin", "manager"]),
   promotionsController.removeProductFromPromotion
 );
 
