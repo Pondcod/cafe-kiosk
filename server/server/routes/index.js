@@ -10,6 +10,9 @@ const customizationRoutes = require("./customization");
 const promotionsRoutes = require("./promotions");
 const reportsRoutes = require("./reports");
 const authRoutes = require("./auth");
+const orderItemsRoutes = require("./orderItems");
+const inventoryTransactionsRoutes = require("./inventoryTransactions");
+const notificationsRoutes = require("./notifications");
 
 router.use("/products", productRoutes);
 router.use("/categories", categoriesRoutes);
@@ -20,9 +23,29 @@ router.use("/customization", customizationRoutes);
 router.use("/promotions", promotionsRoutes);
 router.use("/reports", reportsRoutes);
 router.use("/auth", authRoutes);
+router.use("/orderItems", orderItemsRoutes);
+router.use("/inventoryTransactions", inventoryTransactionsRoutes);
+router.use("/notifications", notificationsRoutes);
 
+// Add this to routes/index.js
+router.post("/test-upload", (req, res) => {
+  console.log("Headers:", req.headers);
+  console.log("Body:", req.body);
+  console.log("Files:", req.files);
 
-
+  res.json({
+    success: true,
+    receivedBody: req.body,
+    receivedFiles: req.files ? true : false,
+    fileDetails: req.files?.image
+      ? {
+          name: req.files.image.name,
+          size: req.files.image.size,
+          mimetype: req.files.image.mimetype,
+        }
+      : null,
+  });
+});
 // Add a default route to list available endpoints
 router.get("/", (req, res) => {
   res.json({
@@ -38,10 +61,9 @@ router.get("/", (req, res) => {
       "/api/promotions",
       "/api/reports",
       "/api/auth",
+      "/api/orderItems",
     ],
   });
 });
-
-
 
 module.exports = router;

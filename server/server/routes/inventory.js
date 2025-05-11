@@ -13,14 +13,6 @@ router.get(
   inventoryController.getLowStockInventory
 );
 
-// Get inventory by product ID
-router.get(
-  "/product/:productId",
-  // authenticateUser,
-  // authorizeRole(['admin', 'manager', 'staff']),
-  inventoryController.getInventoryByProduct
-);
-
 // Get all inventory items
 router.get(
   "/",

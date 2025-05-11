@@ -6,12 +6,7 @@ const getAllPromotions = async (req, res) => {
   try {
     console.log("Getting all promotions");
 
-    const { data, error } = await supabase.from("promotiontable").select(`
-        *,
-        promotionproduct(
-          products(product_id, name, price, category_id, categories(name))
-        )
-      `);
+    const { data, error } = await supabase.from("promotiontable").select("*");
 
     if (error) {
       console.error("Supabase error fetching promotions:", error);
@@ -30,21 +25,16 @@ const getAllPromotions = async (req, res) => {
 };
 
 // Get promotion by ID
+// Fixed getPromotionById function
 const getPromotionById = async (req, res) => {
   try {
     const { id } = req.params;
     console.log(`Getting promotion with ID: ${id}`);
 
+    // Don't use .single() which causes errors when no rows are found
     const { data, error } = await supabase
       .from("promotiontable")
-      .select(
-        `
-        *,
-        promotionproduct(
-          products(product_id, name, price, category_id, categories(name))
-        )
-      `
-      )
+      .select("*")
       .eq("promotion_id", id);
 
     if (error) {
@@ -60,6 +50,21 @@ const getPromotionById = async (req, res) => {
       });
     }
 
+    // Get associated products if any
+    const { data: productData, error: productError } = await supabase
+      .from("promotionproduct")
+      .select(
+        `
+        product_id,
+        products(product_id, name, price)
+      `
+      )
+      .eq("promotion_id", id);
+
+    if (!productError) {
+      data[0].products = productData || [];
+    }
+
     res.json({ success: true, data: data[0] });
   } catch (error) {
     console.error("Error getting promotion by ID:", error);
@@ -70,15 +75,13 @@ const getPromotionById = async (req, res) => {
   }
 };
 
-// Get active promotions for current day
+// Get active promotions
 const getActivePromotions = async (req, res) => {
   try {
-    console.log("Getting active promotions for today");
+    console.log("Getting active promotions");
 
-    // Get current date and day of week
     const today = new Date();
-    const currentDate = today.toISOString().split("T")[0]; // Format: YYYY-MM-DD
-    const daysOfWeek = [
+    const dayOfWeek = [
       "sunday",
       "monday",
       "tuesday",
@@ -86,49 +89,29 @@ const getActivePromotions = async (req, res) => {
       "thursday",
       "friday",
       "saturday",
-    ];
-    const currentDay = daysOfWeek[today.getDay()];
+    ][today.getDay()];
+    const currentDate = today.toISOString().split("T")[0]; // YYYY-MM-DD format
 
-    console.log(`Current date: ${currentDate}, Current day: ${currentDay}`);
-
-    // Get promotions that are active today
     const { data, error } = await supabase
       .from("promotiontable")
-      .select(
-        `
-        *,
-        promotionproduct(
-          products(product_id, name, price, category_id, categories(name))
-        )
-      `
-      )
-      .lte("start_date", currentDate) // Start date is before or equal to today
-      .gte("end_date", currentDate) // End date is after or equal to today
-      .eq("is_active", true); // Promotion is active
+      .select("*")
+      .eq("active_status", true)
+      .or(`start_date.lte.${currentDate},start_date.is.null`)
+      .or(`end_date.gte.${currentDate},end_date.is.null`);
 
     if (error) {
       console.error("Supabase error fetching active promotions:", error);
       throw error;
     }
 
-    // Filter promotions by day of week (if specified)
-    const daySpecificPromotions = data.filter((promotion) => {
-      // If day_of_week is null or empty, promotion applies to all days
-      if (!promotion.day_of_week) return true;
-
-      // Check if the current day is included in the promotion's day_of_week
-      return promotion.day_of_week.toLowerCase().includes(currentDay);
+    // Filter for day-specific promotions if applicable
+    const filtered = data.filter((promo) => {
+      // If day_of_week is null or matches today's day, include it
+      return !promo.day_of_week || promo.day_of_week === dayOfWeek;
     });
 
-    console.log(
-      `Retrieved ${daySpecificPromotions.length} active promotions for today`
-    );
-    res.json({
-      success: true,
-      currentDate,
-      currentDay,
-      data: daySpecificPromotions,
-    });
+    console.log(`Retrieved ${filtered.length} active promotions`);
+    res.json({ success: true, data: filtered });
   } catch (error) {
     console.error("Error fetching active promotions:", error);
     res.status(500).json({
@@ -139,6 +122,7 @@ const getActivePromotions = async (req, res) => {
 };
 
 // Create new promotion
+// Create new promotion with default dates
 const createPromotion = async (req, res) => {
   try {
     const {
@@ -149,67 +133,60 @@ const createPromotion = async (req, res) => {
       start_date,
       end_date,
       day_of_week,
-      product_ids, // Array of product IDs this promotion applies to
+      active_status,
+      product_ids,
     } = req.body;
 
-    console.log("Creating promotion with data:", {
-      name,
-      promotion_type,
-      discount_value,
-      start_date,
-      end_date,
-      day_of_week,
-      product_ids,
-    });
+    console.log("Creating promotion with data:", req.body);
 
     // Validate required fields
-    if (!name) {
+    if (!name || !promotion_type || !discount_value) {
       return res.status(400).json({
         success: false,
-        message: "Name is required",
+        message: "Name, promotion type, and discount value are required",
       });
     }
 
-    if (!promotion_type || promotion_type !== "percentage_off") {
+    // Validate promotion_type
+    const validTypes = ["percentage_off", "bogo"];
+    if (!validTypes.includes(promotion_type)) {
       return res.status(400).json({
         success: false,
-        message: "Promotion type must be percentage_off",
+        message: `Invalid promotion type. Must be one of: ${validTypes.join(
+          ", "
+        )}`,
       });
     }
 
-    if (!discount_value || isNaN(parseFloat(discount_value))) {
-      return res.status(400).json({
-        success: false,
-        message: "Valid discount value is required",
-      });
+    // Validate day_of_week if provided
+    if (day_of_week) {
+      const validDays = [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "sunday",
+      ];
+      if (!validDays.includes(day_of_week.toLowerCase())) {
+        return res.status(400).json({
+          success: false,
+          message: `Invalid day of week. Must be one of: ${validDays.join(
+            ", "
+          )}`,
+        });
+      }
     }
 
-    if (!start_date || !end_date) {
-      return res.status(400).json({
-        success: false,
-        message: "Start date and end date are required",
-      });
-    }
+    // Set default dates if not provided
+    const currentDate = new Date().toISOString().split("T")[0]; // YYYY-MM-DD format
+    const oneYearLater = new Date();
+    oneYearLater.setFullYear(oneYearLater.getFullYear() + 1);
+    const oneYearLaterDate = oneYearLater.toISOString().split("T")[0];
 
-    // Validate product IDs if provided
-    if (
-      product_ids &&
-      (!Array.isArray(product_ids) || product_ids.length === 0)
-    ) {
-      return res.status(400).json({
-        success: false,
-        message: "Product IDs must be a non-empty array",
-      });
-    }
-
-    // Format day_of_week as a comma-separated string if it's an array
-    let formattedDaysOfWeek = day_of_week;
-    if (Array.isArray(day_of_week)) {
-      formattedDaysOfWeek = day_of_week.join(",");
-    }
-
-    // Create the promotion
-    const { data: promotionData, error: promotionError } = await supabase
+    // Create promotion
+    const { data, error } = await supabase
       .from("promotiontable")
       .insert([
         {
@@ -217,78 +194,46 @@ const createPromotion = async (req, res) => {
           description: description || null,
           promotion_type,
           discount_value: parseFloat(discount_value),
-          start_date,
-          end_date,
-          day_of_week: formattedDaysOfWeek,
-          is_active: true,
+          start_date: start_date || currentDate, // Default to today
+          end_date: end_date || oneYearLaterDate, // Default to 1 year from now
+          day_of_week: day_of_week ? day_of_week.toLowerCase() : null,
+          active_status: active_status !== undefined ? active_status : true,
         },
       ])
       .select();
 
-    if (promotionError) {
-      console.error("Supabase error creating promotion:", promotionError);
-      throw promotionError;
+    if (error) {
+      console.error("Supabase error creating promotion:", error);
+      throw error;
     }
 
-    const newPromotion = promotionData[0];
-    console.log("Promotion created:", newPromotion);
+    const promotionId = data[0].promotion_id;
 
-    // If product IDs were provided, create promotion-product associations
-    if (product_ids && product_ids.length > 0) {
-      const promotionProductData = product_ids.map((product_id) => ({
-        promotion_id: newPromotion.promotion_id,
+    // If product_ids are provided, associate them with the promotion
+    if (product_ids && Array.isArray(product_ids) && product_ids.length > 0) {
+      const productPromotions = product_ids.map((product_id) => ({
+        promotion_id: promotionId,
         product_id,
       }));
 
-      const { error: associationError } = await supabase
+      const { error: productError } = await supabase
         .from("promotionproduct")
-        .insert(promotionProductData);
+        .insert(productPromotions);
 
-      if (associationError) {
+      if (productError) {
         console.error(
           "Error associating products with promotion:",
-          associationError
+          productError
         );
-
-        // Even if association fails, we still created the promotion
-        return res.status(201).json({
-          success: true,
-          message: "Promotion created but product associations failed",
-          data: newPromotion,
-          associationError: associationError.message,
-        });
+        // Continue despite error, just log it
       }
     }
 
-    // Get the full promotion data with associated products
-    const { data: fullPromotionData, error: fullPromotionError } =
-      await supabase
-        .from("promotiontable")
-        .select(
-          `
-        *,
-        promotionproduct(
-          products(product_id, name)
-        )
-      `
-        )
-        .eq("promotion_id", newPromotion.promotion_id)
-        .single();
-
-    if (fullPromotionError) {
-      console.error("Error fetching full promotion data:", fullPromotionError);
-      // Still return success as the promotion was created
-      return res.status(201).json({
-        success: true,
-        message: "Promotion created successfully",
-        data: newPromotion,
-      });
-    }
-
+    console.log("Promotion created successfully:", data);
     res.status(201).json({
       success: true,
       message: "Promotion created successfully",
-      data: fullPromotionData,
+      data: data[0],
     });
   } catch (error) {
     console.error("Error creating promotion:", error);
@@ -311,22 +256,13 @@ const updatePromotion = async (req, res) => {
       start_date,
       end_date,
       day_of_week,
-      is_active,
-      product_ids, // Array of product IDs this promotion applies to
+      active_status,
+      product_ids,
     } = req.body;
 
-    console.log(`Updating promotion ${id} with data:`, {
-      name,
-      promotion_type,
-      discount_value,
-      start_date,
-      end_date,
-      day_of_week,
-      is_active,
-      product_ids,
-    });
+    console.log(`Updating promotion ${id} with data:`, req.body);
 
-    // First check if the promotion exists
+    // First check if promotion exists
     const { data: existingData, error: checkError } = await supabase
       .from("promotiontable")
       .select("promotion_id")
@@ -344,10 +280,38 @@ const updatePromotion = async (req, res) => {
       });
     }
 
-    // Format day_of_week as a comma-separated string if it's an array
-    let formattedDaysOfWeek = day_of_week;
-    if (Array.isArray(day_of_week)) {
-      formattedDaysOfWeek = day_of_week.join(",");
+    // Validate promotion_type if provided
+    if (promotion_type) {
+      const validTypes = ["percentage", "fixed_amount"];
+      if (!validTypes.includes(promotion_type)) {
+        return res.status(400).json({
+          success: false,
+          message: `Invalid promotion type. Must be one of: ${validTypes.join(
+            ", "
+          )}`,
+        });
+      }
+    }
+
+    // Validate day_of_week if provided
+    if (day_of_week) {
+      const validDays = [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "sunday",
+      ];
+      if (!validDays.includes(day_of_week.toLowerCase())) {
+        return res.status(400).json({
+          success: false,
+          message: `Invalid day of week. Must be one of: ${validDays.join(
+            ", "
+          )}`,
+        });
+      }
     }
 
     // Build update object with only provided fields
@@ -356,28 +320,27 @@ const updatePromotion = async (req, res) => {
     if (description !== undefined) updateData.description = description;
     if (promotion_type !== undefined)
       updateData.promotion_type = promotion_type;
-    if (discount_value !== undefined && !isNaN(parseFloat(discount_value)))
+    if (discount_value !== undefined)
       updateData.discount_value = parseFloat(discount_value);
     if (start_date !== undefined) updateData.start_date = start_date;
     if (end_date !== undefined) updateData.end_date = end_date;
-    if (formattedDaysOfWeek !== undefined)
-      updateData.day_of_week = formattedDaysOfWeek;
-    if (is_active !== undefined) updateData.is_active = is_active;
+    if (day_of_week !== undefined)
+      updateData.day_of_week = day_of_week ? day_of_week.toLowerCase() : null;
+    if (active_status !== undefined) updateData.active_status = active_status;
 
-    // Update the promotion
-    const { data: updatedPromotion, error: updateError } = await supabase
+    const { data, error } = await supabase
       .from("promotiontable")
       .update(updateData)
       .eq("promotion_id", id)
       .select();
 
-    if (updateError) {
-      console.error("Supabase error updating promotion:", updateError);
-      throw updateError;
+    if (error) {
+      console.error("Supabase error updating promotion:", error);
+      throw error;
     }
 
-    // If product IDs were provided, update the product associations
-    if (product_ids !== undefined) {
+    // Update product associations if provided
+    if (product_ids && Array.isArray(product_ids)) {
       // First delete existing associations
       const { error: deleteError } = await supabase
         .from("promotionproduct")
@@ -389,76 +352,35 @@ const updatePromotion = async (req, res) => {
           "Error deleting existing product associations:",
           deleteError
         );
-
-        // Even if association update fails, we still updated the promotion
-        return res.status(200).json({
-          success: true,
-          message: "Promotion updated but product associations update failed",
-          data: updatedPromotion[0],
-          associationError: deleteError.message,
-        });
+        // Continue despite error
       }
 
-      // Then add new associations if there are product IDs
-      if (Array.isArray(product_ids) && product_ids.length > 0) {
-        const promotionProductData = product_ids.map((product_id) => ({
+      // Then add new associations if there are any products
+      if (product_ids.length > 0) {
+        const productPromotions = product_ids.map((product_id) => ({
           promotion_id: id,
           product_id,
         }));
 
         const { error: insertError } = await supabase
           .from("promotionproduct")
-          .insert(promotionProductData);
+          .insert(productPromotions);
 
         if (insertError) {
           console.error(
-            "Error creating new product associations:",
+            "Error associating products with promotion:",
             insertError
           );
-
-          return res.status(200).json({
-            success: true,
-            message: "Promotion updated but new product associations failed",
-            data: updatedPromotion[0],
-            associationError: insertError.message,
-          });
+          // Continue despite error
         }
       }
     }
 
-    // Get the full updated promotion data with associated products
-    const { data: fullPromotionData, error: fullPromotionError } =
-      await supabase
-        .from("promotiontable")
-        .select(
-          `
-        *,
-        promotionproduct(
-          products(product_id, name)
-        )
-      `
-        )
-        .eq("promotion_id", id)
-        .single();
-
-    if (fullPromotionError) {
-      console.error(
-        "Error fetching full updated promotion data:",
-        fullPromotionError
-      );
-      // Still return success as the promotion was updated
-      return res.status(200).json({
-        success: true,
-        message: "Promotion updated successfully",
-        data: updatedPromotion[0],
-      });
-    }
-
-    console.log("Promotion updated successfully:", fullPromotionData);
+    console.log("Promotion updated successfully:", data);
     res.json({
       success: true,
       message: "Promotion updated successfully",
-      data: fullPromotionData,
+      data: data[0],
     });
   } catch (error) {
     console.error("Error updating promotion:", error);
@@ -475,7 +397,7 @@ const deletePromotion = async (req, res) => {
     const { id } = req.params;
     console.log(`Deleting promotion with ID: ${id}`);
 
-    // First check if the promotion exists
+    // First check if promotion exists
     const { data: existingData, error: checkError } = await supabase
       .from("promotiontable")
       .select("promotion_id")
@@ -493,18 +415,34 @@ const deletePromotion = async (req, res) => {
       });
     }
 
-    // First delete associated product records
+    // Check if promotion is used in any orders
+    const { data: orderData, error: orderError } = await supabase
+      .from("orderpromotion")
+      .select("promotion_id")
+      .eq("promotion_id", id);
+
+    if (!orderError && orderData && orderData.length > 0) {
+      return res.status(400).json({
+        success: false,
+        message: `Cannot delete promotion: it is used in ${orderData.length} orders`,
+      });
+    }
+
+    // Delete product associations first
     const { error: productError } = await supabase
       .from("promotionproduct")
       .delete()
       .eq("promotion_id", id);
 
     if (productError) {
-      console.error("Error deleting promotion products:", productError);
-      throw productError;
+      console.error(
+        "Error deleting promotion product associations:",
+        productError
+      );
+      // Continue despite error
     }
 
-    // Then delete the promotion
+    // Delete the promotion
     const { error } = await supabase
       .from("promotiontable")
       .delete()
@@ -529,188 +467,152 @@ const deletePromotion = async (req, res) => {
   }
 };
 
-// Apply promotions to cart items
-const applyPromotionsToCart = async (req, res) => {
+// Add product to promotion
+const addProductToPromotion = async (req, res) => {
   try {
-    const { cart_items } = req.body; // Array of {product_id, quantity, customizations}
+    const { promotion_id, product_id } = req.body;
+    console.log(`Adding product ${product_id} to promotion ${promotion_id}`);
 
-    if (!cart_items || !Array.isArray(cart_items) || cart_items.length === 0) {
+    // Validate required fields
+    if (!promotion_id || !product_id) {
       return res.status(400).json({
         success: false,
-        message: "Valid cart items are required",
+        message: "Promotion ID and product ID are required",
       });
     }
 
-    // Get current date and day of week
-    const today = new Date();
-    const currentDate = today.toISOString().split("T")[0]; // Format: YYYY-MM-DD
-    const daysOfWeek = [
-      "sunday",
-      "monday",
-      "tuesday",
-      "wednesday",
-      "thursday",
-      "friday",
-      "saturday",
-    ];
-    const currentDay = daysOfWeek[today.getDay()];
-
-    console.log(
-      `Applying promotions for date: ${currentDate}, day: ${currentDay}`
-    );
-
-    // Get active promotions for today
-    const { data: promotions, error: promotionsError } = await supabase
+    // Check if promotion exists
+    const { data: promotionData, error: promotionError } = await supabase
       .from("promotiontable")
-      .select(
-        `
-        *,
-        promotionproduct(product_id)
-      `
-      )
-      .lte("start_date", currentDate) // Start date is before or equal to today
-      .gte("end_date", currentDate) // End date is after or equal to today
-      .eq("is_active", true) // Promotion is active
-      .eq("promotion_type", "percentage_off"); // Only percentage off promotions
+      .select("promotion_id")
+      .eq("promotion_id", promotion_id);
 
-    if (promotionsError) {
-      console.error("Error fetching active promotions:", promotionsError);
-      throw promotionsError;
+    if (promotionError) {
+      console.error("Error checking promotion:", promotionError);
+      throw promotionError;
     }
 
-    // Filter promotions by day of week
-    const applicablePromotions = promotions.filter((promotion) => {
-      // If day_of_week is null or empty, promotion applies to all days
-      if (!promotion.day_of_week) return true;
-
-      // Check if the current day is included in the promotion's day_of_week
-      return promotion.day_of_week.toLowerCase().includes(currentDay);
-    });
-
-    if (applicablePromotions.length === 0) {
-      return res.json({
-        success: true,
-        message: "No applicable promotions found for today",
-        data: {
-          cart_items: cart_items,
-          applied_promotions: [],
-          total_discount: 0,
-        },
+    if (!promotionData || promotionData.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: `Promotion with ID ${promotion_id} not found`,
       });
     }
 
-    // Get details for all products in the cart
-    const productIds = cart_items.map((item) => item.product_id);
-    const { data: products, error: productsError } = await supabase
+    // Check if product exists
+    const { data: productData, error: productError } = await supabase
       .from("products")
-      .select(
-        "product_id, name, price, category_id, categories(category_id, name)"
-      )
-      .in("product_id", productIds);
+      .select("product_id")
+      .eq("product_id", product_id);
 
-    if (productsError) {
-      console.error("Error fetching products:", productsError);
-      throw productsError;
+    if (productError) {
+      console.error("Error checking product:", productError);
+      throw productError;
     }
 
-    // Create a map of product details for easy lookup
-    const productMap = {};
-    products.forEach((product) => {
-      productMap[product.product_id] = product;
-    });
+    if (!productData || productData.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: `Product with ID ${product_id} not found`,
+      });
+    }
 
-    // Apply promotions to each cart item
-    let totalDiscount = 0;
-    const appliedPromotions = [];
-    const cartWithDiscounts = cart_items.map((item) => {
-      const product = productMap[item.product_id];
-      if (!product) return item; // Skip if product not found
+    // Check if association already exists
+    const { data: existingData, error: checkError } = await supabase
+      .from("promotionproduct")
+      .select("*")
+      .eq("promotion_id", promotion_id)
+      .eq("product_id", product_id);
 
-      let itemDiscount = 0;
-      let appliedPromotion = null;
+    if (checkError) {
+      console.error("Error checking existing association:", checkError);
+      throw checkError;
+    }
 
-      // Find applicable promotions for this product
-      for (const promotion of applicablePromotions) {
-        // Check if this promotion applies to this product
-        const productMatches = promotion.promotionproduct.some(
-          (pp) => pp.product_id === item.product_id
-        );
+    if (existingData && existingData.length > 0) {
+      return res.status(400).json({
+        success: false,
+        message: "This product is already associated with this promotion",
+      });
+    }
 
-        if (productMatches) {
-          // Calculate discount for this item
-          const discountAmount =
-            (product.price * promotion.discount_value) / 100;
-          itemDiscount = Math.max(itemDiscount, discountAmount); // Take the largest discount
+    // Create association
+    const { data, error } = await supabase
+      .from("promotionproduct")
+      .insert([
+        {
+          promotion_id,
+          product_id,
+        },
+      ])
+      .select();
 
-          if (
-            !appliedPromotion ||
-            appliedPromotion.discount_value < promotion.discount_value
-          ) {
-            appliedPromotion = promotion;
-          }
-        }
-      }
+    if (error) {
+      console.error("Supabase error adding product to promotion:", error);
+      throw error;
+    }
 
-      // If a promotion was applied, track it
-      if (appliedPromotion && itemDiscount > 0) {
-        const discountForAllUnits = itemDiscount * item.quantity;
-        totalDiscount += discountForAllUnits;
-
-        // Check if this promotion is already in the list
-        const existingPromo = appliedPromotions.find(
-          (p) => p.promotion_id === appliedPromotion.promotion_id
-        );
-        if (existingPromo) {
-          existingPromo.discount_amount += discountForAllUnits;
-          existingPromo.applied_to.push({
-            product_id: product.product_id,
-            product_name: product.name,
-            discount_per_unit: itemDiscount,
-            quantity: item.quantity,
-            total_discount: discountForAllUnits,
-          });
-        } else {
-          appliedPromotions.push({
-            promotion_id: appliedPromotion.promotion_id,
-            name: appliedPromotion.name,
-            discount_value: appliedPromotion.discount_value,
-            discount_amount: discountForAllUnits,
-            applied_to: [
-              {
-                product_id: product.product_id,
-                product_name: product.name,
-                discount_per_unit: itemDiscount,
-                quantity: item.quantity,
-                total_discount: discountForAllUnits,
-              },
-            ],
-          });
-        }
-      }
-
-      // Return item with discount info
-      return {
-        ...item,
-        original_price: product.price,
-        discounted_price: Math.max(0, product.price - itemDiscount),
-        discount_amount: itemDiscount,
-        discount_percentage:
-          itemDiscount > 0 ? appliedPromotion.discount_value : 0,
-      };
-    });
-
-    // Return the cart with applied discounts
-    res.json({
+    console.log("Product added to promotion successfully:", data);
+    res.status(201).json({
       success: true,
-      message: `Applied ${appliedPromotions.length} promotions to the cart`,
-      data: {
-        cart_items: cartWithDiscounts,
-        applied_promotions: appliedPromotions,
-        total_discount: totalDiscount,
-      },
+      message: "Product added to promotion successfully",
+      data: data[0],
     });
   } catch (error) {
-    console.error("Error applying promotions to cart:", error);
+    console.error("Error adding product to promotion:", error);
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+// Remove product from promotion
+const removeProductFromPromotion = async (req, res) => {
+  try {
+    const { promotion_id, product_id } = req.params;
+    console.log(
+      `Removing product ${product_id} from promotion ${promotion_id}`
+    );
+
+    // Check if association exists
+    const { data: existingData, error: checkError } = await supabase
+      .from("promotionproduct")
+      .select("*")
+      .eq("promotion_id", promotion_id)
+      .eq("product_id", product_id);
+
+    if (checkError) {
+      console.error("Error checking existing association:", checkError);
+      throw checkError;
+    }
+
+    if (!existingData || existingData.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "This product is not associated with this promotion",
+      });
+    }
+
+    // Delete association
+    const { error } = await supabase
+      .from("promotionproduct")
+      .delete()
+      .eq("promotion_id", promotion_id)
+      .eq("product_id", product_id);
+
+    if (error) {
+      console.error("Supabase error removing product from promotion:", error);
+      throw error;
+    }
+
+    console.log("Product removed from promotion successfully");
+    res.json({
+      success: true,
+      message: "Product removed from promotion successfully",
+    });
+  } catch (error) {
+    console.error("Error removing product from promotion:", error);
     res.status(500).json({
       success: false,
       message: error.message,
@@ -725,5 +627,6 @@ module.exports = {
   createPromotion,
   updatePromotion,
   deletePromotion,
-  applyPromotionsToCart,
+  addProductToPromotion,
+  removeProductFromPromotion,
 };

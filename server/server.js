@@ -3,6 +3,7 @@ const express = require("express");
 const app = express();
 const cors = require("cors");
 require("dotenv").config();
+const fileUpload = require('express-fileupload');
 const { supabase } = require("./server/config/supabase");
 const routes = require("./server/routes");
 const errorHandler = require("./server/middleware/errorHandler");
@@ -16,26 +17,44 @@ const corsOptions = {
 };
 app.use(cors(corsOptions));
 
-// IMPORTANT: Body parsing middleware must come BEFORE routes
-// Configure body parser for JSON
-app.use(express.json()); // Increase limit if needed
+// IMPORTANT: File upload middleware MUST come BEFORE routes
+// This must be registered BEFORE any body parsers
+app.use(fileUpload({
+  limits: { fileSize: 5 * 1024 * 1024 }, // Limit to 5MB
+  createParentPath: true,
+  debug: true // Enable debug mode temporarily
+}));
+
+// Body parsers after file upload middleware
+app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Add this middleware for debugging request bodies
+// Debug middleware - BEFORE routes to capture all requests
 app.use((req, res, next) => {
   if (['POST', 'PUT'].includes(req.method)) {
     console.log(`[${req.method}] ${req.url} - Request Body:`, req.body);
     console.log('Content-Type:', req.get('Content-Type'));
+    if (req.files) console.log('Files:', req.files);
   }
   next();
 });
 
-// Test route to check if server is running
+// Test routes
 app.get("/api/test", (req, res) => {
   res.json({ message: "Backend server is running!" });
 });
 
-// Debug body parsing
+app.post("/api/test-upload", (req, res) => {
+  console.log("Test upload route hit");
+  console.log("Body:", req.body);
+  console.log("Files:", req.files);
+  return res.json({
+    success: true,
+    body: req.body,
+    files: req.files ? Object.keys(req.files) : []
+  });
+});
+
 app.post("/api/test-body", (req, res) => {
   console.log("Testing body parsing, received:", req.body);
   res.json({
@@ -47,7 +66,7 @@ app.post("/api/test-body", (req, res) => {
   });
 });
 
-// Test Supabase connection
+// Supabase test routes
 app.get("/api/supabase-test", async (req, res) => {
   try {
     const { data, error } = await supabase
@@ -71,10 +90,8 @@ app.get("/api/supabase-test", async (req, res) => {
   }
 });
 
-// List Supabase tables
 app.get("/api/supabase-tables", async (req, res) => {
   try {
-    // Query the pg_tables system catalog
     const { data, error } = await supabase
       .from("pg_tables")
       .select("schemaname, tablename")
@@ -96,7 +113,7 @@ app.get("/api/supabase-tables", async (req, res) => {
   }
 });
 
-// API routes
+// API routes - only register ONCE
 app.use("/api", routes);
 
 // Error handling middleware - must be AFTER routes
@@ -112,5 +129,6 @@ const PORT = process.env.PORT || 8080;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
   console.log(`Test your backend at: http://localhost:${PORT}/api/test`);
+  console.log(`Test file upload at: http://localhost:${PORT}/api/test-upload`);
   console.log(`Test body parsing at: http://localhost:${PORT}/api/test-body`);
 });

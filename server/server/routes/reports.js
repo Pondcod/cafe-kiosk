@@ -2,39 +2,28 @@
 const express = require("express");
 const router = express.Router();
 const reportsController = require("../controllers/reports");
-// Uncomment when auth middleware is ready
-// const { authenticateUser, authorizeRole } = require('../middleware/auth');
+const { authenticateUser, authorizeRole } = require("../middleware/auth");
 
-// Dashboard summary for quick overview
+// Protected reports routes - only for admin and managers
 router.get(
-  "/dashboard",
-  // authenticateUser,
-  // authorizeRole(['admin', 'manager']),
-  reportsController.getDashboardSummary
-);
-
-// Sales summary report
-router.get(
-  "/sales",
-  // authenticateUser,
-  // authorizeRole(['admin', 'manager']),
+  "/sales/summary",
+  authenticateUser,
+  authorizeRole(["admin", "manager"]),
   reportsController.getSalesSummary
 );
 
-// Inventory usage report
 router.get(
-  "/inventory",
-  // authenticateUser,
-  // authorizeRole(['admin', 'manager']),
-  reportsController.getInventoryUsageReport
+  "/products/top",
+  authenticateUser,
+  authorizeRole(["admin", "manager"]),
+  reportsController.getTopProducts
 );
 
-// Product popularity analytics
 router.get(
-  "/product-popularity",
-  // authenticateUser,
-  // authorizeRole(['admin', 'manager']),
-  reportsController.getProductPopularity
+  "/inventory/status",
+  authenticateUser,
+  authorizeRole(["admin", "manager"]),
+  reportsController.getInventoryStatus
 );
 
 module.exports = router;

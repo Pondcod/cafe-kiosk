@@ -1,4 +1,4 @@
-// controllers/inventory.js
+// controllers/inventory.js - Simplified without product tracking
 const { supabase } = require("../config/supabase");
 
 // Get all inventory items
@@ -6,7 +6,6 @@ const getAllInventory = async (req, res) => {
   try {
     console.log("Getting all inventory items");
 
-    // Modified to get only inventory data without the products join
     const { data, error } = await supabase.from("inventory").select("*");
 
     if (error) {
@@ -31,7 +30,6 @@ const getInventoryById = async (req, res) => {
     const { id } = req.params;
     console.log(`Getting inventory item with ID: ${id}`);
 
-    // Modified to get only inventory data without the products join
     const { data, error } = await supabase
       .from("inventory")
       .select("*")
@@ -61,24 +59,9 @@ const getInventoryById = async (req, res) => {
       console.error("Error fetching inventory transactions:", transactionError);
     }
 
-    // If product_id exists, get the product info separately
-    let productInfo = null;
-    if (data[0].product_id) {
-      const { data: productData, error: productError } = await supabase
-        .from("products")
-        .select("product_id, name")
-        .eq("product_id", data[0].product_id)
-        .single();
-
-      if (!productError && productData) {
-        productInfo = productData;
-      }
-    }
-
-    // Combine inventory data with transaction history and product info
+    // Combine inventory data with transaction history
     const responseData = {
       ...data[0],
-      product: productInfo,
       transactions: transactionData || [],
     };
 
@@ -92,64 +75,15 @@ const getInventoryById = async (req, res) => {
   }
 };
 
-// Get inventory by product ID
-const getInventoryByProduct = async (req, res) => {
-  try {
-    const { productId } = req.params;
-    console.log(`Getting inventory for product ID: ${productId}`);
-
-    // First check if the product exists
-    const { data: productData, error: productError } = await supabase
-      .from("products")
-      .select("product_id, name")
-      .eq("product_id", productId);
-
-    if (productError) {
-      console.error("Error checking product:", productError);
-      throw productError;
-    }
-
-    if (!productData || productData.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: `Product with ID ${productId} not found`,
-      });
-    }
-
-    const { data, error } = await supabase
-      .from("inventory")
-      .select("*")
-      .eq("product_id", productId);
-
-    if (error) {
-      console.error("Supabase error fetching inventory for product:", error);
-      throw error;
-    }
-
-    res.json({
-      success: true,
-      product: productData[0],
-      data: data || [],
-    });
-  } catch (error) {
-    console.error("Error getting inventory by product ID:", error);
-    res.status(500).json({
-      success: false,
-      message: error.message,
-    });
-  }
-};
-
 // Create new inventory item
 const createInventory = async (req, res) => {
   try {
-    const { item_name, quantity, unit, reorder_level, product_id } = req.body;
+    const { item_name, quantity, unit, reorder_level } = req.body;
     console.log("Creating inventory item with data:", {
       item_name,
       quantity,
       unit,
       reorder_level,
-      product_id,
     });
 
     // Validate required fields
@@ -158,26 +92,6 @@ const createInventory = async (req, res) => {
         success: false,
         message: "Item name is required",
       });
-    }
-
-    // Check if product exists if product_id is provided
-    if (product_id) {
-      const { data: productData, error: productError } = await supabase
-        .from("products")
-        .select("product_id")
-        .eq("product_id", product_id);
-
-      if (productError) {
-        console.error("Error checking product:", productError);
-        throw productError;
-      }
-
-      if (!productData || productData.length === 0) {
-        return res.status(400).json({
-          success: false,
-          message: `Product with ID ${product_id} not found`,
-        });
-      }
     }
 
     // Insert inventory item
@@ -189,7 +103,6 @@ const createInventory = async (req, res) => {
           quantity: quantity || 0,
           unit: unit || null,
           reorder_level: reorder_level || 10,
-          product_id: product_id || null,
         },
       ])
       .select();
@@ -227,22 +140,22 @@ const createInventory = async (req, res) => {
 };
 
 // Update inventory
+// Update inventory
 const updateInventory = async (req, res) => {
   try {
     const { id } = req.params;
-    const { item_name, quantity, unit, reorder_level, product_id } = req.body;
+    const { item_name, quantity, unit, reorder_level } = req.body;
     console.log(`Updating inventory ${id} with data:`, {
       item_name,
       quantity,
       unit,
       reorder_level,
-      product_id,
     });
 
     // First check if the inventory item exists
     const { data: existingData, error: checkError } = await supabase
       .from("inventory")
-      .select("inventory_id, quantity")
+      .select("inventory_id, quantity, item_name")
       .eq("inventory_id", id);
 
     if (checkError) {
@@ -255,26 +168,6 @@ const updateInventory = async (req, res) => {
         success: false,
         message: `Inventory item with ID ${id} not found`,
       });
-    }
-
-    // Check if product exists if product_id is provided
-    if (product_id !== undefined && product_id !== null) {
-      const { data: productData, error: productError } = await supabase
-        .from("products")
-        .select("product_id")
-        .eq("product_id", product_id);
-
-      if (productError) {
-        console.error("Error checking product:", productError);
-        throw productError;
-      }
-
-      if (!productData || productData.length === 0) {
-        return res.status(400).json({
-          success: false,
-          message: `Product with ID ${product_id} not found`,
-        });
-      }
     }
 
     // Calculate quantity change if new quantity is provided
@@ -291,7 +184,6 @@ const updateInventory = async (req, res) => {
     if (quantity !== undefined) updateData.quantity = quantity;
     if (unit !== undefined) updateData.unit = unit;
     if (reorder_level !== undefined) updateData.reorder_level = reorder_level;
-    if (product_id !== undefined) updateData.product_id = product_id;
 
     const { data, error } = await supabase
       .from("inventory")
@@ -317,15 +209,17 @@ const updateInventory = async (req, res) => {
 
       // Check if inventory is below reorder level
       if (quantity < (reorder_level || data[0].reorder_level)) {
+        // Create notification with correct fields
         await supabase.from("notification").insert([
           {
+            user_id: null, // Can be null or admin user ID
             message: `Inventory item "${data[0].item_name}" is below reorder level`,
-            type: "inventory_low",
-            content: JSON.stringify({
-              inventory_id: id,
-              current_quantity: quantity,
-              reorder_level: reorder_level || data[0].reorder_level,
-            }),
+            type: "inventory",
+            content: `Current quantity: ${quantity}, Reorder level: ${
+              reorder_level || data[0].reorder_level
+            }`,
+            is_read: false,
+            created_at: new Date().toISOString(),
           },
         ]);
       }
@@ -343,6 +237,71 @@ const updateInventory = async (req, res) => {
       success: false,
       message: error.message,
     });
+  }
+};
+
+// Add this to controllers/orders.js
+const updateInventoryFromOrder = async (orderId) => {
+  try {
+    // Get all items in the order
+    const { data: orderItems, error: itemsError } = await supabase
+      .from("orderitems")
+      .select("*, products(*)")
+      .eq("order_id", orderId);
+
+    if (itemsError) throw itemsError;
+
+    // Update inventory for each product
+    for (const item of orderItems) {
+      // Get inventory item for this product
+      const { data: inventoryItems, error: invError } = await supabase
+        .from("inventory")
+        .select("*")
+        .eq("product_id", item.product_id);
+
+      if (invError) throw invError;
+
+      // If product is tracked in inventory
+      if (inventoryItems && inventoryItems.length > 0) {
+        const inventoryItem = inventoryItems[0];
+        const newQuantity = inventoryItem.quantity - item.quantity;
+
+        // Create inventory transaction
+        await supabase.from("inventorytransaction").insert([
+          {
+            inventory_id: inventoryItem.inventory_id,
+            quantity_change: -item.quantity,
+            transaction_type: "order_used",
+            note: `Order #${orderId}`,
+          },
+        ]);
+
+        // Update inventory quantity
+        await supabase
+          .from("inventory")
+          .update({
+            quantity: newQuantity,
+          })
+          .eq("inventory_id", inventoryItem.inventory_id);
+
+        // Create notification if stock is low
+        if (newQuantity <= inventoryItem.reorder_level) {
+          await supabase.from("notification").insert([
+            {
+              user_id: null, // Can be null or admin user ID
+              message: `Low stock alert: ${inventoryItem.item_name}`,
+              type: "inventory",
+              content: `Current quantity: ${newQuantity}, Reorder level: ${inventoryItem.reorder_level}`,
+              is_read: false,
+              created_at: new Date().toISOString(),
+            },
+          ]);
+        }
+      }
+    }
+  } catch (error) {
+    console.error("Error updating inventory from order:", error);
+    // Log error but don't throw, to prevent order processing from failing
   }
 };
 
@@ -495,7 +454,6 @@ const getLowStockInventory = async (req, res) => {
   try {
     console.log("Getting low stock inventory items");
 
-    // Modified to get only inventory data without the products join
     const { data, error } = await supabase
       .from("inventory")
       .select("*")
@@ -522,7 +480,6 @@ const getLowStockInventory = async (req, res) => {
 module.exports = {
   getAllInventory,
   getInventoryById,
-  getInventoryByProduct,
   createInventory,
   updateInventory,
   deleteInventory,
