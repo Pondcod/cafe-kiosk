@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import ColorPalette from './ColorPalette';
-import { MilkOptions, AddOns, SweetnessLevels } from '../data/MenuData';
+import { MilkOptions, AddOns, SweetnessLevels } from '../../data/MenuData';
 
 // display labels instead of raw numbers
 const SweetnessLabels = ['Less', 'Regular', 'Extra'];

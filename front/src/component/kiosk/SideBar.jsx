@@ -1,7 +1,7 @@
 import React from "react";
 import { Card, List } from "@material-tailwind/react";
 import ColorPalette from "./ColorPalette";
-import logo from "../assets/Sol-icon.png";
+import logo from "../../assets/Sol-icon.png";
 import { useNavigate, NavLink } from "react-router-dom";
 
 export function SideBar({ className = "" }) {

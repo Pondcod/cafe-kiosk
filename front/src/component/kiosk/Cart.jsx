@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { AiOutlineShoppingCart } from 'react-icons/ai';
-import { useCart } from '../Context/CartContext.jsx';
-import { SweetnessLevels } from '../data/MenuData.js';
+import { useCart } from '../../Context/CartContext.jsx';
+import { SweetnessLevels } from '../../data/MenuData.js';
 
 function Cart() {
   const [isOpen, setIsOpen] = useState(false);

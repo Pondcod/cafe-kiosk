@@ -4,8 +4,7 @@ import carousel1 from "../../assets/carousel_1.jpg";
 import carousel2 from "../../assets/carousel_2.jpg";
 import carousel3 from "../../assets/carousel_3.jpg";
 import carousel4 from "../../assets/carousel_4.jpg";
-import { BiSolidCoffeeBean } from "react-icons/bi";
-import { BiSolidLeaf } from "react-icons/bi";
+import { BiSolidCoffeeBean, BiSolidLeaf } from "react-icons/bi";
 import { GiMilkCarton } from "react-icons/gi";
 import { LuCupSoda } from "react-icons/lu";
 import { MdBakeryDining } from "react-icons/md";
@@ -14,8 +13,8 @@ import { useNavigate } from 'react-router-dom';
 import Slider from "react-slick";  
 import "slick-carousel/slick/slick.css";  
 import "slick-carousel/slick/slick-theme.css";  
-import ColorPalette from '../../component/ColorPalette.js';
-import Cart from '../../component/Cart.jsx';
+import ColorPalette from '../../component/kiosk/ColorPalette.js';
+import Cart from '../../component/kiosk/Cart.jsx';
 import { useCart } from '../../Context/CartContext.jsx';
 
 function MenuPage(){

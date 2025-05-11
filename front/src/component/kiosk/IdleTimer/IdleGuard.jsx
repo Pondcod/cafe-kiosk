@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { useCart } from '../../Context/CartContext.jsx';
+import { useCart } from '../../../Context/CartContext.jsx';
 import useIdleTimer from './useIdleTimer.js';
 import WarningModal from './WarningModal.jsx';
 

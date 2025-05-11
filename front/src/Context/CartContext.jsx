@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState } from 'react';
-import { calculateTotalPrice } from '../component/Variables.jsx';
+import { calculateTotalPrice } from '../component/kiosk/Variables.jsx';
 
 const CartContext = createContext();
 

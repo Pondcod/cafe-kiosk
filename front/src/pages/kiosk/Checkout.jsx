@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import ColorPalette from '../../component/ColorPalette';
+import ColorPalette from '../../component/kiosk/ColorPalette';
 import QR from '../../assets/IMG_9739.JPG';
 
 const Checkout = () => {
@@ -49,9 +49,9 @@ const Checkout = () => {
       </div>
 
       {method === 'promptpay' && (
-        <img
+        <imgxq
           src={QR}
-          alt=""
+          alt="QR Code"
           className="w-64 h-auto rounded-2xl shadow-lg mt-15"
         />
       )}

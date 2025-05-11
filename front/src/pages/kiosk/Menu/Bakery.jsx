@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { SideBar } from '../../../component/SideBar.jsx';
-import FootBar from '../../../component/FootBar.jsx';
-import Cart from '../../../component/Cart.jsx';
-import CustomizationSlide from '../../../component/Customization_Slide.jsx';
-import OrderSlide from '../../../component/Order_Slide.jsx';
-import ColorPalette from '../../../component/ColorPalette';
+import { SideBar } from '../../../component/kiosk/SideBar.jsx';
+import FootBar from '../../../component/kiosk/FootBar.jsx';
+import Cart from '../../../component/kiosk/Cart.jsx';
+import CustomizationSlide from '../../../component/kiosk/Customization_Slide.jsx';
+import OrderSlide from '../../../component/kiosk/Order_Slide.jsx';
+import ColorPalette from '../../../component/kiosk/ColorPalette.js';
 import { Menu } from '../../../data/MenuData.js';
 
 const Bakery = () => {

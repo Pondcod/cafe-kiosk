@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { calculateTotalPrice, Sizes } from './Variables';
-import { MilkOptions } from '../data/MenuData';
-import { useCart } from '../Context/CartContext';
+import { MilkOptions } from '../../data/MenuData';
+import { useCart } from '../../Context/CartContext';
 import ColorPalette from './ColorPalette';
 
 function OrderSlide({

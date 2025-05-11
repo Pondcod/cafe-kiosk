@@ -1,7 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useCart } from '../../Context/CartContext.jsx';
-import ColorPalette from '../../component/ColorPalette.js';
+import ColorPalette from '../../component/kiosk/ColorPalette.js';
 
 function Cart() {
   const { cartItems, addItem, removeItem, subtotal, total } = useCart();

@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import ColorPalette from '../../component/ColorPalette.js';
+import ColorPalette from '../../component/kiosk/ColorPalette.js';
 import { VscCoffee } from "react-icons/vsc";
 import { SiBuymeacoffee } from "react-icons/si";
 

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useCart } from '../Context/CartContext.jsx'; // ← import clearCart
+import { useCart } from '../../Context/CartContext.jsx'; // ← import clearCart
 import { TbCurrencyBaht } from 'react-icons/tb';
 import ColorPalette from './ColorPalette';
 
@@ -19,7 +19,7 @@ function FootBar({ className }) {
         className="flex flex-row rounded-tr-[3rem] shadow-[0px_9px_2px_rgba(0,0,0,0.5)]"
         style={{ backgroundColor: ColorPalette.beige_cus_1 }}
       >
-        <div className="justify-start my-auto">
+        <div className="my-auto">
           <button
             onClick={handleStartOver}
             className="text-4xl px-10 py-4 m-10 rounded-2xl"
