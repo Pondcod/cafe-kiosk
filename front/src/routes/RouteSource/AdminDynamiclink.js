@@ -1,11 +1,11 @@
 import Dashboard from '../../pages/admin/Dashboard.jsx'
 import Users from '../../pages/admin/UserManagement/Users.jsx'
-import UserRoles from '../../pages/admin/UserManagement/UserRoles.jsx'
 import Products from '../../pages/admin/Products.jsx'
 import Categories from '../../pages/admin/Categories.jsx'
 import Inventory from '../../pages/admin/Inventory.jsx'
 import Orders from '../../pages/admin/Orders.jsx'
 import Promotions from '../../pages/admin/Promotions.jsx'
+import LoginForm from "@/pages/admin/UserManagement/LoginForm.jsx"; 
 
 import {
   FiGrid,
@@ -21,14 +21,13 @@ export const AdminDynamiclink = [
     to: 'dashboard',
     icon: FiGrid,
     component: Dashboard,
-    showInSidebar: false,    
+    showInSidebar: false,
   },
   {
     title: 'User Management',
     to: 'users',
     icon: FiUsers,
     component: Users,
-    children: [{ to: 'Roles', component: UserRoles }],
   },
   {
     title: 'Products',

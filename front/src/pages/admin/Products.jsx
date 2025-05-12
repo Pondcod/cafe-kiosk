@@ -1,308 +1,382 @@
-import React, { useState, useEffect } from 'react'
-import { useSidebar, SidebarInset } from '@/components/ui/sidebar'
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
-import {
-  Table,
-  TableHeader,
-  TableBody,
-  TableRow,
-  TableHead,
-  TableCell,
-} from '@/components/ui/table'
-import { Input } from '@/components/ui/input'
-import {
-  Select,
-  SelectTrigger,
-  SelectValue,
-  SelectContent,
-  SelectItem,
-} from '@/components/ui/select'
-import { Checkbox } from '@/components/ui/checkbox'
-import { Button } from '@/components/ui/button'
-import {
-  Drawer,
-  DrawerTrigger,
-  DrawerOverlay,
-  DrawerContent,
-  DrawerHeader,
-  DrawerTitle,
-  DrawerFooter,
-} from '@/components/ui/drawer'
-import { Label } from '@/components/ui/label'
-import { Toggle } from '@/components/ui/toggle'
+import React, { useEffect, useState } from "react"
+import axios from "axios"
+import { SidebarInset } from "@/components/ui/sidebar"
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table"
+import { Input } from "@/components/ui/input"
+import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
+import { Toggle } from "@/components/ui/toggle"
+import { Drawer, DrawerTrigger, DrawerContent, DrawerHeader, DrawerTitle, DrawerFooter } from "@/components/ui/drawer"
+import { Label } from "@/components/ui/label"
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select"
+import { toast } from "sonner"
+
+const mockUser = { role: "admin", canEdit: true, canDelete: true }
 
 export default function Products() {
-  const { open } = useSidebar()
-  // placeholder product data
-  const initial = [
-    { id: 1, name: 'Widget A', category: 'Gadgets', price: 9.99, status: true, image: '/img/a.jpg' },
-    { id: 2, name: 'Gizmo B', category: 'Gadgets', price: 14.99, status: false, image: '/img/b.jpg' },
-    { id: 3, name: 'Tool C',  category: 'Tools',   price: 29.99, status: true, image: '/img/c.jpg' },
-    // … more
-  ]
-
-  const [products, setProducts] = useState(initial)
-  const [filterCat, setFilterCat] = useState('all')
-  const [query, setQuery] = useState('')
-  const [filtered, setFiltered] = useState(initial)
-  const [selected, setSelected] = useState([])
+  // State
+  const [products, setProducts] = useState([])
+  const [categories, setCategories] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState("")
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [editing, setEditing] = useState(null)
   const [form, setForm] = useState({
-    name: '',
-    description: '',
-    price: '',
-    category: '',
-    status: true,
+    name: "",
+    category: "",
+    description: "",
+    price: "",
+    stock: "",
     image: null,
+    status: true,
   })
+  const [formError, setFormError] = useState("")
+  const [search, setSearch] = useState("")
+  const [page, setPage] = useState(1)
+  const pageSize = 10
 
-  // compute categories
-  const categories = Array.from(new Set(products.map(p => p.category)))
-
+  // Fetch products and categories
   useEffect(() => {
-    let f = products
-      .filter(p => (filterCat === 'all' || p.category === filterCat))
-      .filter(p => p.name.toLowerCase().includes(query.toLowerCase()))
-    setFiltered(f)
-    // clear selection if items removed
-    setSelected(sel => sel.filter(id => f.some(p => p.id === id)))
-  }, [products, filterCat, query])
+    setLoading(true)
+    Promise.all([
+      axios.get("/api/products"),
+      axios.get("/api/categories"),
+    ])
+      .then(([prodRes, catRes]) => {
+        setProducts(Array.isArray(prodRes.data) ? prodRes.data : [])
+        setCategories(Array.isArray(catRes.data) ? catRes.data : [])
+      })
+      .catch(() => setError("Failed to fetch products or categories"))
+      .finally(() => setLoading(false))
+  }, [])
 
-  function toggleSelectAll(val) {
-    setSelected(val ? filtered.map(p => p.id) : [])
-  }
-  function toggleSelect(id, val) {
-    setSelected(sel =>
-      val ? [...sel, id] : sel.filter(x => x !== id)
-    )
-  }
+  // Summary counts
+  const activeCount = products.filter((p) => p.status).length
+  const inactiveCount = products.length - activeCount
 
+  // Filtered and paginated products
+  const filtered = products.filter((p) =>
+    p.name.toLowerCase().includes(search.toLowerCase())
+  )
+  const paged = filtered.slice((page - 1) * pageSize, page * pageSize)
+  const pageCount = Math.ceil(filtered.length / pageSize)
+
+  // Form logic
   function openForm(prod = null) {
-    if (prod) {
-      setEditing(prod.id)
-      setForm({ ...prod })
-    } else {
-      setEditing(null)
-      setForm({ name:'', description:'', price:'', category:'', status:true, image:null })
-    }
+    setEditing(prod ? prod.id : null)
+    setForm(
+      prod
+        ? { ...prod, image: null }
+        : { name: "", category: "", description: "", price: "", stock: "", image: null, status: true }
+    )
+    setFormError("")
     setDrawerOpen(true)
   }
 
-  function save() {
-    if (editing) {
-      setProducts(ps => ps.map(p => p.id === editing ? { ...p, ...form } : p))
-    } else {
-      const id = Date.now()
-      setProducts(ps => [...ps, { id, ...form }])
+  function handleFormChange(field, value) {
+    setForm((f) => ({ ...f, [field]: value }))
+  }
+
+  async function saveProduct() {
+    setFormError("")
+    if (!form.name.trim() || !form.category || !form.price || !form.stock) {
+      setFormError("Name, category, price, and stock are required.")
+      return
     }
-    setDrawerOpen(false)
-  }
-
-  function bulkDelete() {
-    setProducts(ps => ps.filter(p => !selected.includes(p.id)))
-    setSelected([])
-  }
-  function bulkToggle() {
-    setProducts(ps =>
-      ps.map(p =>
-        selected.includes(p.id)
-          ? { ...p, status: !p.status }
-          : p
+    if (isNaN(Number(form.price)) || isNaN(Number(form.stock))) {
+      setFormError("Price and stock must be numbers.")
+      return
+    }
+    setLoading(true)
+    try {
+      let payload = { ...form }
+      // handle image upload if needed
+      if (form.image && typeof form.image !== "string") {
+        // You may need to handle file upload to Supabase Storage here
+        // For now, just omit image upload logic
+        payload = { ...payload, image: "uploaded-image-url" }
+      }
+      if (editing) {
+        await axios.put(`/api/products/${editing}`, payload)
+        setProducts((ps) =>
+          ps.map((p) => (p.id === editing ? { ...p, ...payload } : p))
+        )
+        toast.success("Product updated!")
+      } else {
+        const res = await axios.post("/api/products", payload)
+        setProducts((ps) => [...ps, res.data])
+        toast.success("Product created!")
+      }
+      setDrawerOpen(false)
+    } catch (e) {
+      setFormError(
+        e?.response?.data?.message || "Failed to save product. Try again."
       )
-    )
-    setSelected([])
+    } finally {
+      setLoading(false)
+    }
   }
 
-  // summary counts
-  const total = products.length
-  const active = products.filter(p => p.status).length
-  const inactive = total - active
+  async function deleteProduct(id) {
+    if (!window.confirm("Delete this product?")) return
+    setLoading(true)
+    try {
+      await axios.delete(`/api/products/${id}`)
+      setProducts((ps) => ps.filter((p) => p.id !== id))
+      toast.success("Product deleted!")
+    } catch {
+      toast.error("Failed to delete product.")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function toggleStatus(id) {
+    setLoading(true)
+    try {
+      const prod = products.find((p) => p.id === id)
+      await axios.patch(`/api/products/${id}`, { status: !prod.status })
+      setProducts((ps) =>
+        ps.map((p) => (p.id === id ? { ...p, status: !p.status } : p))
+      )
+      toast.success("Status updated!")
+    } catch {
+      toast.error("Failed to update status.")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Permission checks
+  const canEdit = mockUser.canEdit
+  const canDelete = mockUser.canDelete
 
   return (
     <SidebarInset className="p-4">
-      {/* Status summary */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+      {/* Product Count Summary */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
         <Card>
-          <CardHeader><CardTitle>Total Products</CardTitle></CardHeader>
-          <CardContent>{total}</CardContent>
+          <CardHeader>
+            <CardTitle>Active</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Badge variant="outline">{activeCount}</Badge>
+          </CardContent>
         </Card>
         <Card>
-          <CardHeader><CardTitle>Active</CardTitle></CardHeader>
-          <CardContent>{active}</CardContent>
+          <CardHeader>
+            <CardTitle>Inactive</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Badge variant="outline">{inactiveCount}</Badge>
+          </CardContent>
         </Card>
         <Card>
-          <CardHeader><CardTitle>Inactive</CardTitle></CardHeader>
-          <CardContent>{inactive}</CardContent>
+          <CardHeader>
+            <CardTitle>Total</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Badge variant="outline">{products.length}</Badge>
+          </CardContent>
         </Card>
-        {categories.map(cat => (
-          <Card key={cat}>
-            <CardHeader><CardTitle>{cat}</CardTitle></CardHeader>
-            <CardContent>
-              {products.filter(p => p.category === cat).length}
-            </CardContent>
-          </Card>
-        ))}
       </div>
 
-      {/* Filters & Bulk Actions */}
+      {/* Search and Add */}
       <div className="flex flex-col sm:flex-row sm:items-center gap-2 mb-4">
         <Input
           placeholder="Search product..."
-          value={query}
-          onChange={e => setQuery(e.target.value)}
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
           className="flex-1"
         />
-        <Select value={filterCat} onValueChange={setFilterCat}>
-          <SelectTrigger className="w-[180px]">
-            <SelectValue placeholder="All Categories" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Categories</SelectItem>
-            {categories.map(cat => (
-              <SelectItem key={cat} value={cat}>{cat}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-
-        {selected.length > 0 && (
-          <div className="flex gap-2">
-            <Button variant="destructive" onClick={bulkDelete}>
-              Delete ({selected.length})
-            </Button>
-            <Button variant="outline" onClick={bulkToggle}>
-              Toggle Status
-            </Button>
-          </div>
-        )}
-
-        {/* Add / Edit form trigger */}
-        <Drawer open={drawerOpen} onOpenChange={setDrawerOpen}>
-          <DrawerTrigger asChild>
-            <Button onClick={() => openForm(null)}>New Product</Button>
-          </DrawerTrigger>
-          <DrawerOverlay />
-          <DrawerContent className="w-[400px]">
-            <DrawerHeader>
-              <DrawerTitle>{editing ? 'Edit' : 'New'} Product</DrawerTitle>
-            </DrawerHeader>
-            <div className="p-4 grid gap-4">
-              <div className="grid gap-1">
-                <Label htmlFor="name">Name</Label>
-                <Input
-                  id="name"
-                  value={form.name}
-                  onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-                />
+        {canEdit && (
+          <Drawer open={drawerOpen} onOpenChange={setDrawerOpen}>
+            <DrawerTrigger asChild>
+              <Button onClick={() => openForm(null)}>New Product</Button>
+            </DrawerTrigger>
+            <DrawerContent className="w-[400px]">
+              <DrawerHeader>
+                <DrawerTitle>{editing ? "Edit" : "New"} Product</DrawerTitle>
+              </DrawerHeader>
+              <div className="p-4 grid gap-4">
+                <div className="grid gap-1">
+                  <Label htmlFor="name">Product Name</Label>
+                  <Input
+                    id="name"
+                    value={form.name}
+                    onChange={(e) => handleFormChange("name", e.target.value)}
+                  />
+                </div>
+                <div className="grid gap-1">
+                  <Label htmlFor="category">Category</Label>
+                  <Select
+                    value={form.category}
+                    onValueChange={(v) => handleFormChange("category", v)}
+                  >
+                    <SelectTrigger id="category">
+                      <SelectValue placeholder="Select category" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {categories.map((cat) => (
+                        <SelectItem key={cat.id} value={cat.name}>
+                          {cat.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid gap-1">
+                  <Label htmlFor="desc">Description</Label>
+                  <Input
+                    id="desc"
+                    value={form.description}
+                    onChange={(e) =>
+                      handleFormChange("description", e.target.value)
+                    }
+                  />
+                </div>
+                <div className="grid gap-1">
+                  <Label htmlFor="price">Price</Label>
+                  <Input
+                    id="price"
+                    type="number"
+                    value={form.price}
+                    onChange={(e) => handleFormChange("price", e.target.value)}
+                  />
+                </div>
+                <div className="grid gap-1">
+                  <Label htmlFor="stock">Stock Quantity</Label>
+                  <Input
+                    id="stock"
+                    type="number"
+                    value={form.stock}
+                    onChange={(e) => handleFormChange("stock", e.target.value)}
+                  />
+                </div>
+                <div className="grid gap-1">
+                  <Label htmlFor="image">Product Image</Label>
+                  <Input
+                    id="image"
+                    type="file"
+                    onChange={(e) =>
+                      handleFormChange("image", e.target.files?.[0])
+                    }
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <Label>Status</Label>
+                  <Toggle
+                    pressed={form.status}
+                    onPressedChange={(v) => handleFormChange("status", v)}
+                  >
+                    {form.status ? "Active" : "Inactive"}
+                  </Toggle>
+                </div>
+                {formError && <div className="text-red-600">{formError}</div>}
               </div>
-              <div className="grid gap-1">
-                <Label htmlFor="desc">Description</Label>
-                <Input
-                  id="desc"
-                  value={form.description}
-                  onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
-                />
-              </div>
-              <div className="grid gap-1">
-                <Label htmlFor="price">Price</Label>
-                <Input
-                  id="price"
-                  type="number"
-                  value={form.price}
-                  onChange={e => setForm(f => ({ ...f, price: e.target.value }))}
-                />
-              </div>
-              <div className="grid gap-1">
-                <Label htmlFor="category">Category</Label>
-                <Select
-                  value={form.category}
-                  onValueChange={v => setForm(f => ({ ...f, category: v }))}
+              <DrawerFooter className="flex justify-end">
+                <Button onClick={saveProduct} disabled={loading}>
+                  {loading ? "Saving..." : "Save"}
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => setDrawerOpen(false)}
+                  disabled={loading}
                 >
-                  <SelectTrigger id="category">
-                    <SelectValue placeholder="Select category" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {categories.map(cat => (
-                      <SelectItem key={cat} value={cat}>{cat}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="flex items-center gap-2">
-                <Label>Status</Label>
-                <Toggle
-                  pressed={form.status}
-                  onPressedChange={v => setForm(f => ({ ...f, status: v }))}
-                >{form.status ? 'Active' : 'Inactive'}</Toggle>
-              </div>
-              <div className="grid gap-1">
-                <Label htmlFor="image">Image</Label>
-                <Input
-                  id="image"
-                  type="file"
-                  onChange={e => setForm(f => ({ ...f, image: e.target.files?.[0] }))}
-                />
-              </div>
-            </div>
-            <DrawerFooter className="flex justify-end">
-              <Button onClick={save}>Save</Button>
-            </DrawerFooter>
-          </DrawerContent>
-        </Drawer>
+                  Cancel
+                </Button>
+              </DrawerFooter>
+            </DrawerContent>
+          </Drawer>
+        )}
       </div>
 
-      {/* Product list */}
+      {/* Product List Table */}
       <div className="overflow-auto">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>
-                <Checkbox
-                  checked={selected.length === filtered.length && filtered.length > 0}
-                  onCheckedChange={toggleSelectAll}
-                />
-              </TableHead>
-              <TableHead>Image</TableHead>
-              <TableHead>Name</TableHead>
-              <TableHead>Category</TableHead>
-              <TableHead className="text-right">Price</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {filtered.map(p => (
-              <TableRow key={p.id}>
-                <TableCell>
-                  <Checkbox
-                    checked={selected.includes(p.id)}
-                    onCheckedChange={v => toggleSelect(p.id, v)}
-                  />
-                </TableCell>
-                <TableCell>
-                  <img src={p.image} alt={p.name} className="h-8 w-8 rounded" />
-                </TableCell>
-                <TableCell>{p.name}</TableCell>
-                <TableCell>{p.category}</TableCell>
-                <TableCell className="text-right">${p.price.toFixed(2)}</TableCell>
-                <TableCell>{p.status ? 'Active' : 'Inactive'}</TableCell>
-                <TableCell>
-                  <Button size="icon" variant="outline" onClick={() => openForm(p)}>
-                    Edit
-                  </Button>
-                  <Button
-                    size="icon"
-                    variant="destructive"
-                    onClick={() => setProducts(ps => ps.filter(x => x.id !== p.id))}
-                    className="ml-2"
-                  >
-                    Delete
-                  </Button>
-                </TableCell>
+        {loading ? (
+          <div className="text-center py-8">Loading...</div>
+        ) : error ? (
+          <div className="text-red-600 py-8">{error}</div>
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Product Name</TableHead>
+                <TableHead>Category</TableHead>
+                <TableHead>Price</TableHead>
+                <TableHead>Stock</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Actions</TableHead>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+            </TableHeader>
+            <TableBody>
+              {paged.map((prod) => (
+                <TableRow key={prod.id}>
+                  <TableCell>{prod.name}</TableCell>
+                  <TableCell>{prod.category}</TableCell>
+                  <TableCell>${Number(prod.price).toFixed(2)}</TableCell>
+                  <TableCell>{prod.stock}</TableCell>
+                  <TableCell>
+                    <Toggle
+                      pressed={prod.status}
+                      onPressedChange={() => canEdit && toggleStatus(prod.id)}
+                      disabled={!canEdit}
+                    >
+                      {prod.status ? "Active" : "Inactive"}
+                    </Toggle>
+                  </TableCell>
+                  <TableCell>
+                    {canEdit && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => openForm(prod)}
+                        className="mr-2"
+                      >
+                        Edit
+                      </Button>
+                    )}
+                    {canDelete && (
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        onClick={() => deleteProduct(prod.id)}
+                      >
+                        Delete
+                      </Button>
+                    )}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
+      </div>
+
+      {/* Pagination */}
+      <div className="flex justify-between items-center mt-4">
+        <span className="text-sm">
+          Page {page} of {pageCount || 1}
+        </span>
+        <div className="flex gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+            disabled={page === 1}
+          >
+            Prev
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setPage((p) => Math.min(pageCount, p + 1))}
+            disabled={page === pageCount || pageCount === 0}
+          >
+            Next
+          </Button>
+        </div>
       </div>
     </SidebarInset>
   )
