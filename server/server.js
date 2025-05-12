@@ -7,6 +7,8 @@ const fileUpload = require("express-fileupload");
 const { supabase } = require("./server/config/supabase");
 const routes = require("./server/routes");
 const errorHandler = require("./server/middleware/errorHandler");
+const authRoutes = require("./server/routes/auth");
+
 
 // CORS setup
 const corsOptions = {
@@ -26,6 +28,7 @@ app.use(
     debug: true, // Enable debug mode temporarily
   })
 );
+
 
 // Body parsers after file upload middleware
 app.use(express.json());
@@ -117,6 +120,8 @@ app.get("/api/supabase-tables", async (req, res) => {
 
 // API routes - only register ONCE
 app.use("/api", routes);
+
+app.use("/api/auth", authRoutes);
 
 // Error handling middleware - must be AFTER routes
 app.use(errorHandler);

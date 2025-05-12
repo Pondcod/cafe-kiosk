@@ -1,14 +1,14 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import logo from '../../assets/Sol-icon.png';
 import carousel1 from "../../assets/carousel_1.jpg";
 import carousel2 from "../../assets/carousel_2.jpg";
 import carousel3 from "../../assets/carousel_3.jpg";
 import carousel4 from "../../assets/carousel_4.jpg";
+// Import icons directly at the top
 import { BiSolidCoffeeBean, BiSolidLeaf } from "react-icons/bi";
-import { GiMilkCarton } from "react-icons/gi";
+import { GiMilkCarton, GiCakeSlice } from "react-icons/gi";
 import { LuCupSoda } from "react-icons/lu";
 import { MdBakeryDining } from "react-icons/md";
-import { GiCakeSlice } from "react-icons/gi";
 import { useNavigate } from 'react-router-dom';
 import Slider from "react-slick";  
 import "slick-carousel/slick/slick.css";  
@@ -16,6 +16,22 @@ import "slick-carousel/slick/slick-theme.css";
 import ColorPalette from '../../component/kiosk/ColorPalette.js';
 import Cart from '../../component/kiosk/Cart.jsx';
 import { useCart } from '../../Context/CartContext.jsx';
+import { categoryService } from '../../services/api'; // Import the API service
+
+// Function to get icon component based on category name
+const getCategoryIcon = (categoryName) => {
+  // Use the already imported icons
+  const iconMap = {
+    'Coffee': <BiSolidCoffeeBean className="text-[5rem] text-black" />,
+    'Tea': <BiSolidLeaf className="text-[5rem] text-black" />,
+    'Milk': <GiMilkCarton className="text-[5rem] text-black" />,
+    'Others': <LuCupSoda className="text-[5rem] text-black" />,
+    'Bakery': <MdBakeryDining className="text-[5rem] text-black" />,
+    'Cake': <GiCakeSlice className="text-[5rem] text-black" />
+  };
+  
+  return iconMap[categoryName] || <LuCupSoda className="text-[5rem] text-black" />;
+};
 
 function MenuPage(){
   const settings = {
@@ -26,9 +42,37 @@ function MenuPage(){
     arrows: false,  
     cssEase: 'ease-in-out'
   };
+  
   const navigate = useNavigate();
   const { total, clearCart } = useCart();
   const [showModal, setShowModal] = useState(false);
+  const [categories, setCategories] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  
+  // Fetch categories from backend
+  useEffect(() => {
+    async function fetchCategories() {
+      try {
+        setLoading(true);
+        const response = await categoryService.getCategories();
+        
+        if (response.success) {
+          setCategories(response.data || []);
+        } else {
+          setError(response.message || 'Failed to load categories');
+          console.error('Error loading categories:', response.message);
+        }
+      } catch (err) {
+        setError('Failed to connect to the server');
+        console.error('Error fetching categories:', err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    
+    fetchCategories();
+  }, []);
 
   const handleStartOver = () => {
     setShowModal(true);
@@ -39,8 +83,21 @@ function MenuPage(){
   };
 
   const handleOrder = () => {
-    navigate('/Summary'); // Navigate to the Summary page
+    navigate('/Summary');
   };
+
+  // For testing, we'll use hardcoded categories if API fails
+  const fallbackCategories = [
+    { category_id: '1', name: 'Coffee' },
+    { category_id: '2', name: 'Tea' },
+    { category_id: '3', name: 'Milk' },
+    { category_id: '4', name: 'Others' },
+    { category_id: '5', name: 'Bakery' },
+    { category_id: '6', name: 'Cake' },
+  ];
+
+  // Use fallback categories if loading failed
+  const displayCategories = categories.length > 0 ? categories : (error ? fallbackCategories : []);
 
   return (
     <div className='h-full flex flex-col' style={{backgroundColor: ColorPalette.beige_cus_2}}>
@@ -64,74 +121,38 @@ function MenuPage(){
         </div>
       </div>
       <p className="text-4xl pt-[1.6rem] pl-[2rem]">Explore our menu</p>
-      <div className="grid grid-cols-3 gap-y-12 gap-x-6 place-items-center mt-8 px-15 pb-10">
-        <div className="flex flex-col items-center">
-          <button
-            onClick={() => navigate('/Menu/Coffee')}
-            type="button"
-            className="border-none p-7 rounded-4xl shadow-xl outline-hidden"
-            style={{ backgroundColor: ColorPalette.beige_cus_1, borderColor: '#000' }}
-          >
-            <BiSolidCoffeeBean className="text-[5rem] text-black" />
-          </button>
-          <h1 className="text-2xl mt-2 text-center">Coffee</h1>
+      
+      {loading ? (
+        <div className="flex justify-center items-center h-64">
+          <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-gray-900"></div>
         </div>
-        <div className="flex flex-col items-center">
-          <button
-            onClick={() => navigate('/Menu/Tea')}
-            type="button"
-            className="border-none p-7 rounded-4xl shadow-xl outline-hidden"
-            style={{ backgroundColor: ColorPalette.beige_cus_1, borderColor: '#000' }}
-          >
-            <BiSolidLeaf className="text-[5rem] text-black" />
-          </button>
-          <h1 className="text-2xl mt-2 text-center">Tea</h1>
+      ) : (
+        <div className="grid grid-cols-3 gap-y-12 gap-x-6 place-items-center mt-8 px-15 pb-10">
+          {displayCategories.map((category) => (
+            <div key={category.category_id} className="flex flex-col items-center">
+              <button
+                onClick={() => navigate(`/Menu/${category.name}`)}
+                type="button"
+                className="border-none p-7 rounded-4xl shadow-xl outline-hidden"
+                style={{ backgroundColor: ColorPalette.beige_cus_1, borderColor: '#000' }}
+              >
+                {getCategoryIcon(category.name)}
+              </button>
+              <h1 className="text-2xl mt-2 text-center">{category.name}</h1>
+            </div>
+          ))}
         </div>
-        <div className="flex flex-col items-center">
-          <button
-            onClick={() => navigate('/Menu/Milk')}
-            type="button"
-            className="border-none p-7 rounded-4xl shadow-xl outline-hidden"
-            style={{ backgroundColor: ColorPalette.beige_cus_1, borderColor: '#000' }}
-          >
-            <GiMilkCarton  className="text-[5rem] text-black" />
-          </button>
-          <h1 className="text-2xl mt-2 text-center">Milk</h1>
+      )}
+      
+      {/* Show error message if there's an error but still using fallback categories */}
+      {error && (
+        <div className="text-center pb-4">
+          <p className="text-red-500">
+            {error}. Using default categories.
+          </p>
         </div>
-        <div className="flex flex-col items-center">
-          <button
-            onClick={() => navigate('/Menu/Others')}
-            type="button"
-            className="border-none p-7 rounded-4xl shadow-xl outline-hidden"
-            style={{ backgroundColor: ColorPalette.beige_cus_1, borderColor: '#000' }}
-          >
-            <LuCupSoda  className="text-[5rem] text-black" />
-          </button>
-          <h1 className="text-2xl mt-2 text-center">Others</h1>
-        </div>
-        <div className="flex flex-col items-center">
-          <button
-            onClick={() => navigate('/Menu/Bakery')}
-            type="button"
-            className="border-none p-7 rounded-4xl shadow-xl outline-hidden"
-            style={{ backgroundColor: ColorPalette.beige_cus_1, borderColor: '#000' }}
-          >
-            <MdBakeryDining className="text-[5rem] text-black" />
-          </button>
-          <h1 className="text-2xl mt-2 text-center">Bakery</h1>
-        </div>
-        <div className="flex flex-col items-center">
-          <button
-            onClick={() => navigate('/Menu/Cake')}
-            type="button"
-            className="border-none p-7 rounded-4xl shadow-xl outline-hidden"
-            style={{ backgroundColor: ColorPalette.beige_cus_1, borderColor: '#000' }}
-          >
-            <GiCakeSlice  className="text-[5rem] text-black" />
-          </button>
-          <h1 className="text-2xl mt-2 text-center">Cake</h1>
-        </div>
-      </div>
+      )}
+      
       <div
         className="flex flex-row rounded-t-[3rem] shadow-[0px_9px_2px_rgba(0,0,0,0.5)]"
         style={{ backgroundColor: ColorPalette.beige_cus_1 }}
@@ -152,7 +173,7 @@ function MenuPage(){
 
         <div className="my-auto flex justify-end basis-[40%]">
           <button
-            onClick={handleOrder} // Navigate to Summary page
+            onClick={handleOrder}
             className="text-4xl px-10 py-4 m-10 rounded-2xl"
             style={{ backgroundColor: ColorPalette.yellow_cus }}
           >
@@ -201,8 +222,8 @@ function MenuPage(){
               <button
                 type="button"
                 onClick={() => {
-                  clearCart();      // ← clear cart items
-                  navigate('/');    // ← go home
+                  clearCart();
+                  navigate('/');
                 }}
                 className="font- text-3xl text-white active:scale-95 transition w-45 h-18 rounded-lg"
                 style={{ backgroundColor: ColorPalette.green_cus }}

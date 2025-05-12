@@ -1,6 +1,7 @@
 // middleware/auth.js
 const { supabase } = require("../config/supabase");
 const jwt = require("jsonwebtoken");
+const bcrypt = require("bcrypt");
 
 // Simple JWT secret - in production, this should be in env vars
 const JWT_SECRET = "cafe-kiosk-secret-key";
@@ -126,8 +127,119 @@ const authorizeRole = (allowedRoles) => {
   };
 };
 
+// User registration function
+const register = async (req, res) => {
+  try {
+    const { email, password, name, role = "staff" } = req.body;
+
+    // Basic validation
+    if (!email || !password || !name) {
+      return res.status(400).json({
+        success: false,
+        message: "Email, password, and name are required",
+      });
+    }
+
+    // Check if email already exists
+    const { data: existingUser, error: checkError } = await supabase
+      .from("users")
+      .select("user_id")
+      .eq("email", email)
+      .single();
+
+    if (existingUser) {
+      return res.status(409).json({
+        success: false,
+        message: "User with this email already exists",
+      });
+    }
+
+    // Hash password
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    // Validate role (only allow certain roles)
+    const allowedRoles = ["admin", "manager", "staff"];
+    if (!allowedRoles.includes(role)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid role specified",
+      });
+    }
+
+    // Create new user
+    const { data: newUser, error: createError } = await supabase
+      .from("users")
+      .insert({
+        email,
+        password_hash: hashedPassword,
+        name,
+        role,
+        created_at: new Date().toISOString(),
+        last_login: null,
+        is_active: true,
+      })
+      .select("user_id, email, name, role, created_at, is_active")
+      .single();
+
+    if (createError) {
+      console.error("User creation error:", createError);
+      return res.status(500).json({
+        success: false,
+        message: "Failed to create user",
+        error: createError.message,
+      });
+    }
+
+    res.status(201).json({
+      success: true,
+      message: "User registered successfully",
+      data: newUser,
+    });
+  } catch (error) {
+    console.error("Registration error:", error);
+    res.status(500).json({
+      success: false,
+      message: "An error occurred during registration",
+    });
+  }
+};
+
+// Simple logout function
+const logout = async (req, res) => {
+  try {
+    // Get user from request object
+    const userId = req.user.user_id;
+    
+    // Update last activity timestamp (optional)
+    try {
+      await supabase
+        .from("users")
+        .update({ last_activity: new Date().toISOString() })
+        .eq("user_id", userId);
+    } catch (err) {
+      console.error("Failed to update last activity:", err);
+      // Continue with logout even if this fails
+    }
+
+    // Return success response
+    res.json({
+      success: true,
+      message: "Logout successful",
+    });
+  } catch (error) {
+    console.error("Logout error:", error);
+    res.status(500).json({
+      success: false,
+      message: "An error occurred during logout",
+    });
+  }
+};
+
+// Make sure to export all necessary functions
 module.exports = {
   login,
+  register,
+  logout,
   authenticateUser,
   authorizeRole,
 };
